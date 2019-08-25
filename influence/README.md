@@ -1,6 +1,8 @@
-# Repository - Toolbox
+# @micosmo/influence
 
-Contains packages of helper tools that can be accessed by either client, server or web applications.
+The *influence* package is a system for constructing objects by composition.
+
+!!!!!!!!!!! TBC !!!!!!!!!!!!!!!!
 
 ## PREREQUISITES
 
@@ -8,30 +10,21 @@ Contains packages of helper tools that can be accessed by either client, server 
 
 ## INSTALLATION
 
-See link to packages below.
+* NPM Package - `npm install @micosmo/influence'
 
-## PACKAGES
+### IMPORTING
 
-### [core](./core/README.md)
+```javascript
+const influence = require('@micosmo/influence');
+```
 
-Helper objects and functions that extend the core Javascript functionality.
+## VERSIONS
 
-### [influence](./influence/README.md)
-
-Object construction through composition.
-
-### [ticker](./ticker/README.md)
-
-System that separates timer event handlers (tickers) from time based processes that are deployed to a ticker.
-
-## CONTRIBUTING
-
-TBC
+0.1.0 - Initial release
 
 ## AUTHORS
 
-* Adam Twite
-* Bruce Twite
+* Bruce Twite - Initial work
 
 ## LICENSE
 

@@ -1,0 +1,16 @@
+{
+  "name": "@micosmo/ticker",
+  "version": "0.1.0",
+  "description": "System for managing processes that are dependent on timer tick events",
+  "main": "index.js",
+  "homepage": ".",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/micosmogames/toolbox.git"
+  },
+  "author": "Micosmo",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {}
+}

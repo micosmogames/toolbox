@@ -1,7 +1,7 @@
 /*
  * index.js
  *
- * Answers all the exported functions from the Toolbox.
+ * Answers all the exported core functions and objects
  */
 "use strict";
 
@@ -9,4 +9,6 @@ Object.assign(module.exports,
   require('./replicate'),
   require('./private'),
   require('./method'),
-  require('./StringBuilder'));
+  require('./string'),
+  require('./character'),
+);

@@ -1,8 +1,8 @@
-# @micosmo/toolbox/private
+# @micosmo/core/private
 
 Provides a service for creating private properties for a public object. Private properties are contained in a private object that is associated (loosely coupled) to a public object. Each private object is created within the scope of a private space. A private space is represented by an accessor function that can create and return the private object for any public object within that private space. The accessor function is effectively a private key to the private data. Without the private accessor function the private properties of an object are not visible nor can be accessed. An accessor function can be shared allowing broader but still limited visibility of the private properties.
 
-An object can have private properties in one or more private spaces, each with their own unique accessor function. In this case each private space has no knowledge or visiblilty to a public object's private object is another private space. They are completely independent and decoupled.
+An object can have private properties in one or more private spaces, each with their own unique accessor function. In this case each private space has no knowledge or visiblilty to a public object's private object in another private space. They are completely independent and decoupled.
 
 For the most part however an object will have a single set of private properties that have been assigned by the creating module, with the module defining a single private space.
 
@@ -11,19 +11,19 @@ For the most part however an object will have a single set of private properties
 ### IMPORTING
 
 ```javascript
-const { newPrivateSpace } = require('@micosmo/toolbox/private');
+const { newPrivateSpace } = require('@micosmo/core/private');
 ```
 
-### FUNCTIONS
+### EXPORTS
 
-<div style="width:175px">Function</div> | Description
+Function | Description
 -------- | -----------
 newPrivateSpace() | Creates a new private space and returns a unique accessor function (*fPrivate*).
 *fPrivate*(o) | Returns the private object of *o* from the *fPrivate* private space. Will create the private object if it does not exist.
-*fPrivate*.setObject(o, oPrivate) | Sets the private object for *o* to *oPrivate* in the *fPrivate* private space. Will replace an existing private object. Returns *o*.
+*fPrivate*.setObject(o,&nbsp;oPrivate) | Sets the private object for *o* to *oPrivate* in the *fPrivate* private space. Will replace an existing private object. Returns *o*.
 
 ```javascript
-const fPrivate = require('@micosmo/toolbox/private').newPrivateSpace();
+const fPrivate = require('@micosmo/core/private').newPrivateSpace();
 
 function createMyObject() {
   return fPrivate.setObject({

@@ -21,6 +21,7 @@
         "no-undef-init": "off",
         "no-unused-vars": "warn",
         "no-trailing-spaces": "warn",
+        "no-useless-escape": "warn",
         "comma-dangle": "off",
         "eol-last": "warn",
         "array-element-newline": "off",

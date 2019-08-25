@@ -1,7 +1,11 @@
 /**
- * StringBuilder.js
+ * string.js
  *
- * Construct a string by collecting the parts into an array.
+ * String related services
+ *
+ * StringBuilder
+ * -------------
+ * Constructs a string by collecting the parts into an array.
  * The final result is answered by joining the parts.
  */
 

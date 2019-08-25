@@ -1,20 +1,26 @@
-# @micosmo/toolbox/StringBuilder
+# @micosmo/core/string
 
-String construction helper object that joins one or more string segments into a single string.
-String concatenation is delayed until the full string is required using the array join method
-to construct the string.
+String services.
 
 ## API
 
-### StringBuilder()
-Returns a new StringBuilder object.
+### IMPORTING
 
 ```javascript
-var { StringBuilder } = require('@micosmo/toolbox/StringBuilder');
+var { StringBuilder } = require('@micosmo/core/string');
 const sb = StringBuilder();
 ```
+### OBJECTS
 
-### METHODS
+#### Object: StringBuilder
+
+##### COMPOSERS
+
+Export | Description
+-------- | -----------
+StringBuilder() | Returns a new StringBuilder helper object that joins one or more string segments into a single string. String concatenation is delayed until the full string is required using the array join method to construct the string.
+
+##### METHODS
 
 Method | Description
 ------ | -----------

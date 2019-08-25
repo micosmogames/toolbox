@@ -1,0 +1,16 @@
+{
+  "name": "@micosmo/core",
+  "version": "0.1.0",
+  "description": "Core Javascript language extensions",
+  "main": "index.js",
+  "homepage": ".",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/micosmogames/toolbox.git"
+  },
+  "author": "Micosmo",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {}
+}
