@@ -71,73 +71,47 @@ function fNotConfigurable(ctxt, desc) {
 }
 
 function copy(from, to) {
-  return copyReplicator({
-    replicate: copyReplicator,
-    fReplicator: descReplicate,
-  }, from, to);
+  return Contexts.copy.replicate(from, to);
 }
 copy.public = function (from, to) {
-  return copyPublicReplicator({
-    replicate: copyPublicReplicator,
-    fReplicator: descReplicate,
-  }, from, to);
+  return Contexts.copyPublic.replicate(from, to);
 }
 
 function openCopy(from, to) {
-  return copyReplicator({
-    replicate: copyReplicator,
-    fReplicator: descReplicate,
-    fConfigure: fConfigurable
-  }, from, to);
+  return Contexts.openCopy.replicate(from, to);
 }
 openCopy.public = function (from, to) {
-  return copyPublicReplicator({
-    replicate: copyPublicReplicator,
-    fReplicator: descReplicate,
-    fConfigure: fConfigurable
-  }, from, to);
+  return Contexts.openCopyPublic.replicate(from, to);
 }
 
 function closedCopy(from, to) {
-  return copyReplicator({
-    replicate: copyReplicator,
-    fReplicator: closedDescReplicate,
-    fConfigure: fNotConfigurable
-  }, from, to);
+  return Contexts.closedCopy.replicate(from, to);
 }
 closedCopy.public = function (from, to) {
-  return copyPublicReplicator({
-    replicate: copyPublicReplicator,
-    fReplicator: closedDescReplicate,
-    fConfigure: fNotConfigurable
-  }, from, to);
+  return Contexts.closedCopyPublic.replicate(from, to);
 }
 
 function copyValues(from, to) {
-  return copyReplicator({
-    replicate: copyReplicator,
-    fReplicator: valueReplicate,
-  }, from, to);
+  return Contexts.copyValues.replicate(from, to);
 }
 copyValues.public = function (from, to) {
-  return copyPublicReplicator({
-    replicate: copyPublicReplicator,
-    fReplicator: valueReplicate,
-  }, from, to);
+  return Contexts.copyValuesPublic.replicate(from, to);
 }
 
-function copyReplicator(ctxt, from, to) {
-  return copyOther(ctxt, from, to) || newPrivateSpace.replicate(ctxt, from, copyObject(ctxt, from, to));
+// WARNING: copyReplicator is a method not a function. 'this' is a context
+function copyReplicator(from, to) {
+  return copyOther(this, from, to) || newPrivateSpace.replicate(this, from, copyObject(this, from, to));
 }
 
-function copyPublicReplicator(ctxt, from, to) {
-  return copyOther(ctxt, from, to) || copyObject(ctxt, from, to);
+// WARNING: copyPublicReplicator is a method not a function. 'this' is a context
+function copyPublicReplicator(from, to) {
+  return copyOther(this, from, to) || copyObject(this, from, to);
 }
 
 function copyOther(ctxt, from, to) {
   if (Array.isArray(from))
     return from.slice(0);
-  else if (typeof from !== 'object')
+  else if (typeof from !== 'object' || from === null)
     return from;
   if (from.micopy)
     return from.micopy(ctxt);
@@ -156,37 +130,17 @@ function reverseCopy(a) {
 }
 
 function clone(from, to) {
-  return cloneReplicator({
-    replicate: cloneReplicator,
-    fReplicator: descReplicate,
-    fConfigure: cloneValue,
-    cloneMap: new Map()
-  }, from, to);
+  return Contexts.clone.replicate(from, to);
 }
 clone.public = function (from, to) {
-  return clonePublicReplicator({
-    replicate: clonePublicReplicator,
-    fReplicator: descReplicate,
-    fConfigure: cloneValue,
-    cloneMap: new Map()
-  }, from, to);
+  return Contexts.clonePublic.replicate(from, to);
 }
 
 function openClone(from, to) {
-  return cloneReplicator({
-    replicate: cloneReplicator,
-    fReplicator: descReplicate,
-    fConfigure: fCloneConfigurable,
-    cloneMap: new Map()
-  }, from, to);
+  return Contexts.openClone.replicate(from, to);
 }
 openClone.public = function (from, to) {
-  return clonePublicReplicator({
-    replicate: clonePublicReplicator,
-    fReplicator: descReplicate,
-    fConfigure: fCloneConfigurable,
-    cloneMap: new Map()
-  }, from, to);
+  return Contexts.openClonePublic.replicate(from, to);
 }
 function fCloneConfigurable(ctxt, desc) {
   cloneValue(ctxt, desc);
@@ -194,20 +148,10 @@ function fCloneConfigurable(ctxt, desc) {
 }
 
 function closedClone(from, to) {
-  return cloneReplicator({
-    replicate: cloneReplicator,
-    fReplicator: closedDescReplicate,
-    fConfigure: fCloneNotConfigurable,
-    cloneMap: new Map()
-  }, from, to);
+  return Contexts.closedClone.replicate(from, to);
 }
 closedClone.public = function (from, to) {
-  return clonePublicReplicator({
-    replicate: clonePublicReplicator,
-    fReplicator: closedDescReplicate,
-    fConfigure: fCloneNotConfigurable,
-    cloneMap: new Map()
-  }, from, to);
+  return Contexts.closedClonePublic.replicate(from, to);
 }
 function fCloneNotConfigurable(ctxt, desc) {
   cloneValue(ctxt, desc);
@@ -215,32 +159,26 @@ function fCloneNotConfigurable(ctxt, desc) {
 }
 
 function cloneValues(from, to) {
-  return cloneReplicator({
-    replicate: cloneReplicator,
-    fReplicator: cloneValueReplicate,
-    cloneMap: new Map()
-  }, from, to);
+  return Contexts.cloneValues.replicate(from, to);
 }
 cloneValues.public = function (from, to) {
-  return clonePublicReplicator({
-    replicate: clonePublicReplicator,
-    fReplicator: cloneValueReplicate,
-    cloneMap: new Map()
-  }, from, to);
+  return Contexts.cloneValuesPublic.replicate(from, to);
 }
 
-function cloneReplicator(ctxt, from, to) {
-  return cloneOther(ctxt, from, to) || newPrivateSpace.replicate(ctxt, from, cloneObject(ctxt, from, to));
+// WARNING: cloneReplicator is a method not a function. 'this' is a context
+function cloneReplicator(from, to) {
+  return cloneOther(this, from, to) || newPrivateSpace.replicate(this, from, cloneObject(this, from, to));
 }
 
-function clonePublicReplicator(ctxt, from, to) {
-  return cloneOther(ctxt, from, to) || cloneObject(ctxt, from, to);
+// WARNING: clonePublicReplicator is a method not a function. 'this' is a context
+function clonePublicReplicator(from, to) {
+  return cloneOther(this, from, to) || cloneObject(this, from, to);
 }
 
 function cloneOther(ctxt, from, to) {
   if (Array.isArray(from))
     return cloneArray(ctxt, from);
-  else if (typeof from !== 'object')
+  else if (typeof from !== 'object' || from === null)
     return from;
   if (ctxt.cloneMap.has(from))
     return ctxt.cloneMap.get(from);
@@ -257,13 +195,13 @@ function cloneObject(ctxt, from, to) {
 
 function cloneValueReplicate(ctxt, from, to) {
   for (const name in from)
-    to[name] = ctxt.replicate(ctxt, from[name]);
+    to[name] = ctxt.replicate(from[name]);
   return to;
 }
 
 function cloneValue(ctxt, desc) {
   if (desc.value)
-    desc.value = ctxt.replicate(ctxt, desc.value);
+    desc.value = ctxt.replicate(desc.value);
 }
 
 function cloneArray(ctxt, ai) {
@@ -274,4 +212,98 @@ function cloneArray(ctxt, ai) {
   cloneMap.set(ai, ao);
   ai.forEach(v => ao.push(ctxt.replicate(v)))
   return ao;
+}
+
+// Context objects for each style of replication
+
+const Contexts = {
+  get copy() { return copyContext(copyReplicator) },
+  get copyPublic() { return copyContext(copyPublicReplicator) },
+  get openCopy() { return openCopyContext(copyReplicator) },
+  get openCopyPublic() { return openCopyContext(copyPublicReplicator) },
+  get closedCopy() { return closedCopyContext(copyReplicator) },
+  get closedCopyPublic() { return closedCopyContext(copyPublicReplicator) },
+  get copyValues() { return copyValuesContext(copyReplicator) },
+  get copyValuesPublic() { return copyValuesContext(copyPublicReplicator) },
+  get clone() { return cloneContext(cloneReplicator) },
+  get clonePublic() { return cloneContext(clonePublicReplicator) },
+  get openClone() { return openCloneContext(cloneReplicator) },
+  get openClonePublic() { return openCloneContext(clonePublicReplicator) },
+  get closedClone() { return closedCloneContext(cloneReplicator) },
+  get closedClonePublic() { return closedCloneContext(clonePublicReplicator) },
+  get cloneValues() { return cloneValuesContext(cloneReplicator) },
+  get cloneValuesPublic() { return cloneValuesContext(clonePublicReplicator) },
+}
+
+function copyContext(fReplicate) {
+  return {
+    replicate: fReplicate,
+    fReplicator: descReplicate,
+    get cloneContext() { return this.__altCtxt__ || (this.__altCtxt__ = Contexts.clone) },
+  };
+}
+
+function openCopyContext(fReplicate) {
+  return {
+    replicate: fReplicate,
+    fReplicator: descReplicate,
+    fConfigure: fConfigurable,
+    get cloneContext() { return this.__altCtxt__ || (this.__altCtxt__ = Contexts.openClone) },
+  };
+}
+
+function closedCopyContext(fReplicate) {
+  return {
+    replicate: fReplicate,
+    fReplicator: closedDescReplicate,
+    fConfigure: fNotConfigurable,
+    get cloneContext() { return this.__altCtxt__ || (this.__altCtxt__ = Contexts.closedClone) },
+  };
+}
+
+function copyValuesContext(fReplicate) {
+  return {
+    replicate: fReplicate,
+    fReplicator: valueReplicate,
+    get cloneContext() { return this.__altCtxt__ || (this.__altCtxt__ = Contexts.cloneValues) },
+  };
+}
+
+function cloneContext(fReplicate) {
+  return {
+    replicate: fReplicate,
+    fReplicator: descReplicate,
+    fConfigure: cloneValue,
+    get copyContext() { return this.__altCtxt__ || (this.__altCtxt__ = Contexts.copy) },
+    cloneMap: new Map()
+  };
+}
+
+function openCloneContext(fReplicate) {
+  return {
+    replicate: fReplicate,
+    fReplicator: descReplicate,
+    fConfigure: fCloneConfigurable,
+    get copyContext() { return this.__altCtxt__ || (this.__altCtxt__ = Contexts.openCopy) },
+    cloneMap: new Map()
+  };
+}
+
+function closedCloneContext(fReplicate) {
+  return {
+    replicate: fReplicate,
+    fReplicator: closedDescReplicate,
+    fConfigure: fCloneNotConfigurable,
+    get copyContext() { return this.__altCtxt__ || (this.__altCtxt__ = Contexts.closedCopy) },
+    cloneMap: new Map()
+  };
+}
+
+function cloneValuesContext(fReplicate) {
+  return {
+    replicate: fReplicate,
+    fReplicator: cloneValueReplicate,
+    get copyContext() { return this.__altCtxt__ || (this.__altCtxt__ = Contexts.copyValues) },
+    cloneMap: new Map()
+  };
 }

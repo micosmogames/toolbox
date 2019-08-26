@@ -34,6 +34,76 @@ openClone(from[,&nbsp;to]) | As for *clone* except that the descriptors are set 
 closedClone(from[,&nbsp;to]) | As for *clone* except that the descriptors are set to not *configurable* and the target object is sealed.
 cloneValues(from[,&nbsp;to]) | As for *clone* except the deep copy is based on the values only.
 
+### NOTES
+
+#### MICOPY & MICLONE
+
+Object values may inject their own behaviour for copying and cloning by defining a *micopy* or *miclone* method. The replication process will pass control to *micopy* or *miclone* to complete the operation for the given object. They must return a value that represents the copied or cloned version of the object. Any value can be returned including the original object.
+
+The *micopy* and *myclone* methods are passed a *context* object that defines the replication process that has been requested. The *context* contains two properties that are of interest to the target object:
+
+
+Property | Description
+-------- | -----------
+replicate(from[, to]) | A function that calls the context's replication processor to replicate the *from* value. A target *to* object can also be provided if the *from* value is an object.
+copyContext | *miclone* context parameter only. The alternate matching context for copying values instead of cloning.
+cloneContext | *micopy* context parameter only. The alternate matching contect for cloning values instead of copying.
+
+##### Example: No replication
+
+```javascript
+  {
+    ...
+    micopy() { return this },
+    miclone() { return this },
+    ...
+  }
+```
+
+##### Example: Copy must clone
+
+```javascript
+  {
+    ...
+    micopy(ctxt) { return ctxt.cloneContext.replicate(this) },
+    ...
+  }
+```
+
+##### Example: Partial copy
+
+```javascript
+  {
+    foo: 1,
+    bar: 2,
+    _temp: ...,
+    micopy(ctxt) { 
+      return {
+        foo: this.foo,
+        bar: this.bar        
+      };
+    }
+  }
+```
+
+##### Example: Partial clone
+
+```javascript
+  {
+    foo: { ... },
+    bar: { ... },
+    _temp: ...,
+    miclone(ctxt) { 
+      return {
+        foo: ctxt.replicate(this.foo),
+        bar: ctxt.replicate(this.bar)
+      };
+    }
+  }
+```
+
+#### PUBLIC ONLY REPLICATION
+
 The *copy* and *clone* group of functions can also perform public level only copy or clone operations, via a *public* function that is a property of the required *copy* or *clone* function . In this case any *private* properties are not replicated. See example below.
 
 ```javascript

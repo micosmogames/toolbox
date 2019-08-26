@@ -15,7 +15,7 @@ The *method* service provides a decorator function that uplifts a function that 
 ### IMPORTING
 
 ```javascript
-const { method } = require('@micosmo/toolbox/method');
+const { method } = require('@micosmo/core/method');
 ```
 
 ### EXPORTS
@@ -25,7 +25,7 @@ Function | Description
 method(f) | Return a new function that maps *this* to the first parameter of *f*.
 
 ```javascript
-const { method } = require('@micosmo/toolbox/method');
+const { method } = require('@micosmo/core/method');
 
 const foo = {
   bar: method(fBar)

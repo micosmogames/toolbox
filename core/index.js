@@ -9,6 +9,7 @@ Object.assign(module.exports,
   require('./replicate'),
   require('./private'),
   require('./method'),
+  require('./bind'),
   require('./string'),
   require('./character'),
 );

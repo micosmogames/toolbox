@@ -10,7 +10,7 @@ The *core* package contains helper objects and functions that extend the core Ja
 
 * NPM Package - `npm install @micosmo/core'
 
-## HELPER OBJECTS & FUNCTIONS
+## CONTENTS
 
 ### [private](./md/private.md)
 
@@ -24,6 +24,10 @@ Functions for assigning, copying and cloning Javascript objects at both a descri
 
 Contains a decorator service to promote a function that accepts an object as the first argument to be a method of that object type.
 
+### [bind](./md/bind.md)
+
+Alternate bind function that returns the same bound function for the same inputs.
+
 ### [string](./md/string.md)
 
 Contains a string building service.
@@ -32,7 +36,7 @@ Contains a string building service.
 
 Contains character testing services.
 
-### IMPORTING
+## IMPORTING
 
 The interfaces for all the modules contained in this package have been rolled into the default exports for the package.
 

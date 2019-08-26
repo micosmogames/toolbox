@@ -1,8 +1,8 @@
 {
-  "name": "@micosmo/ticker",
-  "version": "0.1.0",
-  "description": "System for managing processes that are dependent on timer tick events",
-  "main": "ticker.js",
+  "name": "@micosmo/aframe",
+  "version": "0.9.2",
+  "description": "Aframe components, systems and utilities",
+  "main": "index.js",
   "homepage": ".",
   "repository": {
     "type": "git",

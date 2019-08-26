@@ -26,6 +26,9 @@ function newPrivateSpace() {
       oPrivate = newPrivateObject(o, privateSpace, oPrivate);
     return o;
   }
+  fPrivate.exists = function (o) {
+    return privateSpace.has(o);
+  }
   return fPrivate;
 }
 
@@ -50,7 +53,7 @@ newPrivateSpace.replicate = function(ctxt, from, to) {
     SpaceMaps.set(to, tSpaceMap);
     fSpaceMap.forEach(ps => {
       tSpaceMap.push(ps);
-      ps.set(to, ctxt.replicate(ctxt, ps.get(from)));
+      ps.set(to, ctxt.replicate(ps.get(from)));
     })
   }
   return to;

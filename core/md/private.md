@@ -21,6 +21,7 @@ Function | Description
 newPrivateSpace() | Creates a new private space and returns a unique accessor function (*fPrivate*).
 *fPrivate*(o) | Returns the private object of *o* from the *fPrivate* private space. Will create the private object if it does not exist.
 *fPrivate*.setObject(o,&nbsp;oPrivate) | Sets the private object for *o* to *oPrivate* in the *fPrivate* private space. Will replace an existing private object. Returns *o*.
+*fprivate*.exists(o) | Returns a boolean indicating if *o* has private properties in the *fPrivate* private space.
 
 ```javascript
 const fPrivate = require('@micosmo/core/private').newPrivateSpace();
