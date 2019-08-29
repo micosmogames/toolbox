@@ -12,17 +12,21 @@ See link to packages below.
 
 ## PACKAGES
 
-### [core](./core/README.md)
+### [ticker](./ticker/README.md)
 
-Helper objects and functions that extend the core Javascript functionality.
+System that separates timer event handlers (tickers) from time based processes that are deployed to a ticker.
+
+### [aframe](./aframe/README.md)
+
+Library of systems, components and utilities for Aframe applications.
 
 ### [influence](./influence/README.md)
 
 Object construction through composition.
 
-### [ticker](./ticker/README.md)
+### [core](./core/README.md)
 
-System that separates timer event handlers (tickers) from time based processes that are deployed to a ticker.
+Helper objects and functions that extend the core Javascript functionality.
 
 ## CONTRIBUTING
 
