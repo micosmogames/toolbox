@@ -1,29 +1,22 @@
 import aframe from 'aframe';
-import * as ticker from './ticker';
-import { isVisibleInScene } from "../lib/utils";
+import { onLoadedDo } from './startup';
+import { isVisibleInScene } from "./lib/utils";
 
-var DocumentListeners;
 const KeyMap = new Map();
 var flKeyboardReady = false;
+var sysKeyboard;
 
 aframe.registerSystem("keyboard", {
   init() {
-    ticker.onLoadedDo(keyboardReady);
-  },
-  documentListeners(o) {
-    DocumentListeners = o;
+    onLoadedDo(keyboardReady);
+    sysKeyboard = this;
+    addDocumentListeners();
   },
   disable() {
-    if (!DocumentListeners)
-      return;
-    for (const prop in DocumentListeners)
-      document.removeEventListener(prop, DocumentListeners[prop]);
+    removeDocumentListeners();
   },
   enable() {
-    if (!DocumentListeners)
-      return;
-    for (const prop in DocumentListeners)
-      document.addEventListener(prop, DocumentListeners[prop]);
+    addDocumentListeners();
   },
   keydown(evt) {
     dispatchEvent(evt, 'keydown');
@@ -32,7 +25,7 @@ aframe.registerSystem("keyboard", {
     dispatchEvent(evt, 'keyup');
   },
   addListeners(comp, ...keySpecs) {
-    ticker.onLoadedDo(() => {
+    onLoadedDo(() => {
       if (!comp.el.components.keymap) {
         console.warn(`system:keyboard:addListeners: Missing keymap component for element '${comp.el.id || '<anonymous>'}'`);
         return;
@@ -42,7 +35,7 @@ aframe.registerSystem("keyboard", {
     });
   },
   tryAddListeners(comp, ...keySpecs) {
-    ticker.onLoadedDo(() => {
+    onLoadedDo(() => {
       if (!comp.el.components.keymap)
         return;
       //      console.log('system:keyboard:tryAddListeners: Processing keymap for', comp.attrName, keySpecs, comp.el.components.keymap.mappings);
@@ -55,6 +48,19 @@ aframe.registerSystem("keyboard", {
     removeListeners(comp.el.components.keymap, comp, ids);
   }
 });
+
+function fKeyDown(evt) { sysKeyboard.keydown(evt); };
+function fKeyUp(evt) { sysKeyboard.keyup(evt); };
+
+function addDocumentListeners() {
+  document.addEventListener('keydown', fKeyDown, true);
+  document.addEventListener('keyup', fKeyUp, true);
+}
+
+function removeDocumentListeners() {
+  document.removeEventListener('keydown', fKeyDown);
+  document.removeEventListener('keyup', fKeyUp);
+}
 
 function dispatchEvent(evt, sEvent) {
   if (!flKeyboardReady)
@@ -90,7 +96,7 @@ function dispatchListeners(kmKey, keyCode, evt, sEvent) {
   return false;
 }
 
-function addListeners(km, comp, keySpecs) {
+export function addListeners(km, comp, keySpecs) {
   const idMap = km.mappings.idMap;
   if (keySpecs.length === 1 && Array.isArray(keySpecs[0]))
     keySpecs = keySpecs[0];
@@ -126,7 +132,7 @@ function addListeners(km, comp, keySpecs) {
   });
 }
 
-function removeListeners(km, comp, ids) {
+export function removeListeners(km, comp, ids) {
   const idMap = km.mappings.idMap;
   if (ids.length === 1 && Array.isArray(ids[0]))
     ids = ids[0];
@@ -162,74 +168,4 @@ function noListener() { return false }
 function keyboardReady() {
   console.info(`system:keyboard:keyboardReady: Keyboard enabled`);
   flKeyboardReady = true;
-}
-
-aframe.registerComponent("keymap", {
-  schema: { default: '' },
-  update(oldData) {
-    if (oldData && oldData !== '')
-      throw new Error(`component:keymap:update: Key mappings can not be updated`);
-    if (this.data === '')
-      throw new Error(`component:keymap:update: Key mappings required`);
-    this.mappings = prepareKeyMappings(this.data);
-  },
-  addListeners(comp, ...keySpecs) {
-    addListeners(this, comp, keySpecs);
-  },
-  removeListeners(comp, ...ids) {
-    removeListeners(this, comp, ids);
-  },
-  play() {
-    this.isPaused = false;
-  },
-  pause() {
-    this.isPaused = true;
-  }
-});
-
-function prepareKeyMappings(sm) {
-  const keyMap = {};
-  const idMap = {};
-  splitKeyMappings(sm).forEach(s => {
-    var key, id;
-    const i = s.indexOf(':');
-    if (i <= 0)
-      key = id = s.trim(); // Default to key id === key code.
-    else if (i === 0 && (key = id = s.trim()).length > 1)
-      throw new Error(`component:keymap:update: Invalid key mapping '${s}'`);
-    else {
-      id = s.substr(0, i).trim();
-      key = s.substr(i + 1).trim();
-    }
-    if (id === '' || key === '')
-      throw new Error(`component:keymap:update: Invalid key mapping '${s}'`);
-    if (keyMap[key])
-      throw new Error(`component:keymap:update: Multiple ids ('${keyMap[key]}' & '${id}') for key '${key}'.`);
-    keyMap[key] = id;
-    var keys = idMap[id];
-    if (!keys)
-      idMap[id] = keys = [];
-    keys.push(key);
-  });
-  return {
-    keyMap,
-    idMap
-  };
-}
-
-function splitKeyMappings(sm) {
-  const a = [];
-  do {
-    const i = sm.indexOf(',');
-    if (i < 0) {
-      if (sm !== '')
-        a.push(sm);
-      return a;
-    } else if (i === 0) {
-      sm = sm.substr(1);
-      continue;
-    }
-    a.push(sm.substr(0, i));
-    sm = sm.substr(i + 1);
-  } while (true);
 }

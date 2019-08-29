@@ -1,7 +1,7 @@
 /* global THREE */
 import aframe from "aframe";
 import { bindEvent } from "aframe-event-decorators";
-import { isVisibleInScene } from "../lib/utils";
+import { isVisibleInScene } from "./lib/utils";
 
 const v1 = new THREE.Vector3();
 const v2 = new THREE.Vector3();

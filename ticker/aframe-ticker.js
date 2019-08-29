@@ -1,20 +1,14 @@
+/*
+*  aframe-ticker.js
+*
+*  Aframe implementaion of the ticker.js system.
+*/
 import aframe from 'aframe';
-import ticker from '../lib/ticker';
+import ticker from './ticker';
+import { declareMethod, method } from '@micosmo/core/method';
+import { onLoadedDo } from '@micosmo/aframe/startup';
 
-export const looper = ticker.looper;
-export const iterator = ticker.iterator;
-export const waiter = ticker.waiter;
-export const sWaiter = ticker.sWaiter;
-export const msWaiter = ticker.msWaiter;
-export const usWaiter = ticker.usWaiter;
-export const timer = ticker.timer;
-export const sTimer = ticker.sTimer;
-export const msTimer = ticker.msTimer;
-export const usTimer = ticker.usTimer;
-
-var flSystemLoaded = false;
-var onLoadedDoQueue = [];
-var afterLoadedDoQueue = [];
+export { looper, iterator, waiter, sWaiter, msWaiter, timer, sTimer, msTimer } from './ticker';
 
 export function startProcess(...args) {
   return checkOnLoadedDoTicker(processArgs('startProcess', args), process => process.start());
@@ -74,7 +68,7 @@ function processArgs(fn, args) {
     if (args.length >= 1)
       cfg.onTick = args[0];
     if (args.length > 1) {
-      fTyTicker = sel => locateTocker(sel);
+      fTyTicker = sel => locateTicker(sel);
       tkr = args[1];
     }
   }
@@ -152,20 +146,21 @@ function findTicker(el, flTocker) {
 const defTicker = ticker.DefaultTicker;
 const defTocker = ticker.Ticker('DefaultTocker');
 
-var fLoadedListener;
+var start = declareMethod(function () { return this.ticker.start(); });
+var stop = declareMethod(function () { return this.ticker.stop(); });
+var pause = declareMethod(function () { return this.ticker.pause(); });
+var play = declareMethod(function () { return this.ticker.start(); });
 
 aframe.registerSystem("ticker", {
   init() {
-    fLoadedListener = loadedListener.bind(this);
-    this.el.addEventListener("loaded", fLoadedListener);
     this.ticker = defTicker;
     this.isaTicker = true;
     console.info(`system:ticker:init: Ticker '${defTicker.name}' initialised`);
   },
   tick(tm, dt) { defTicker.tick(tm, dt) },
-  start,
-  stop,
-  pause,
+  start: method(start),
+  stop: method(stop),
+  pause: method(pause)
 });
 
 aframe.registerComponent("ticker", {
@@ -179,10 +174,10 @@ aframe.registerComponent("ticker", {
     console.info(`component:ticker:init: Ticker '${this.ticker.name}' initialised`);
   },
   tick(tm, dt) { this.ticker.tick(tm, dt) },
-  start,
-  stop,
-  pause,
-  play
+  start: method(start),
+  stop: method(stop),
+  pause: method(pause),
+  play: method(play)
 });
 
 var flDefaultTockerStarted = false;
@@ -196,9 +191,9 @@ export function startDefaultTocker() {
       console.info(`system:tocker:init: Tocker '${defTocker.name}' initialised`);
     },
     tock(tm, dt) { defTocker.tick(tm, dt) },
-    start,
-    stop,
-    pause
+    start: method(start),
+    stop: method(stop),
+    pause: method(pause)
   });
   flDefaultTockerStarted = true;
 }
@@ -214,37 +209,8 @@ aframe.registerComponent("tocker", {
     console.info(`component:tocker:init: Ticker '${this.ticker.name}' initialised`);
   },
   tock(tm, dt) { this.ticker.tick(tm, dt) },
-  start,
-  stop,
-  pause,
-  play
+  start: method(start),
+  stop: method(stop),
+  pause: method(pause),
+  play: method(play)
 });
-
-function start() { return this.ticker.start(); }
-function stop() { return this.ticker.stop(); }
-function pause() { return this.ticker.pause(); }
-function play() { return this.ticker.start(); }
-
-export function onLoadedDo(f) {
-  if (flSystemLoaded)
-    return f();
-  onLoadedDoQueue.push(f);
-}
-
-export function afterLoadedDo(f) {
-  if (flSystemLoaded)
-    return f();
-  afterLoadedDoQueue.push(f);
-}
-
-function loadedListener() {
-  console.info(`ticker:loadedListener: Processing 'onLoadedDo' & 'afterLoadedDo' queues`);
-  this.el.removeEventListener("loaded", fLoadedListener);
-  const queue = onLoadedDoQueue;
-  onLoadedDoQueue = [];
-  flSystemLoaded = true;
-  queue.forEach(f => f());
-  // Run all processing that must occur after all loading activity is complete
-  afterLoadedDoQueue.forEach(f => f());
-  afterLoadedDoQueue = [];
-}

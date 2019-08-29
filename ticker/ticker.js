@@ -4,7 +4,11 @@
 *  The basic ticker process element is based on a generator function.
 */
 
+var { declareMethod, method } = require('../core/method');
+// var { declareMethod, method } = require('@micosmo/core/method');
+
 const ProtGenFn = Object.getPrototypeOf(function * () { });
+const TickerPrototype = _TickerPrototype();
 const DefaultTicker = Ticker('DefaultTicker');
 
 module.exports = {
@@ -31,65 +35,55 @@ function Ticker(name) {
     isStarted: true,
     name,
     processes: [],
-    _tick: undefined,
     tick: fNoop,
   }, TickerPrototype);
 };
 
-const TickerPrototype = {
-  assignAsDefaultTo,
-  start,
-  stop,
-  pause,
-  isRunning,
-  isPaused,
+function _TickerPrototype() {
+  return {
+    assignAsDefaultTo(...processes) {
+      if (processes.length === 1 && Array.isArray(processes[0]))
+        processes = processes[0];
+      processes.forEach(process => {
+        if (typeof process !== 'object' || !process.isaProcess)
+          throw new Error(`ticker:assignAsDefaultTo: Invalid process parameter`);
+        if (process.isStarted) {
+          console.warn(`ticker:assignAsDefaultTo: Process '${process.name}' started. Cannot assign ticker`);
+          return this;
+        }
+        process.ticker = this;
+      })
+      return this;
+    },
+    start() {
+      if (this.isStarted)
+        return false;
+      this.tick = this.processes.length > 0 ? method(tickTicker) : fNoop;
+      return (this.isStarted = true);
+    },
+    stop() {
+      const rc = this.pause();
+      if (this.processes.length > 0)
+        this.processes = [];
+      return rc;
+    },
+    pause() {
+      if (!this.isStarted)
+        return false;
+      this.tick = fNoop;
+      this.isStarted = false;
+      return true;
+    },
+    isRunning() {
+      return this.isStarted;
+    },
+    isPaused() {
+      return !this.isStarted;
+    }
+  };
 }
 
-function start() {
-  if (this.isStarted)
-    return false;
-  this.tick = this.processes.length > 0 ? this._tick : fNoop;
-  return (this.isStarted = true);
-}
-
-function stop() {
-  const rc = this.pause();
-  if (this.processes.length > 0)
-    this.processes = [];
-  return rc;
-}
-
-function pause() {
-  if (!this.isStarted)
-    return false;
-  this.tick = fNoop;
-  this.isStarted = false;
-  return true;
-}
-
-function isRunning() {
-  return this.isStarted;
-}
-
-function isPaused() {
-  return !this.isStarted;
-}
-
-function attachTicker(ticker, process) {
-  if (ticker.tick === fNoop && (ticker.tick = ticker._tick) === undefined)
-    ticker.tick = ticker._tick = tickTicker.bind(ticker);
-  ticker.processes.push(process);
-}
-
-function detachTicker(ticker, process) {
-  const processes = ticker.processes;
-  const iProcess = processes.findIndex(proc => proc === process);
-  if (iProcess < 0)
-    throw new Error(`Ticker: Process '${process.name}' is not attached to ticker '${ticker.name}'`)
-  processes[iProcess] = undefined; // Let tick cycle remove the entry
-}
-
-function tickTicker(tm, dt) {
+var tickTicker = declareMethod(function (tm, dt) {
   const processes = this.processes;
   var nProcesses = processes.length; // Don't want to process anything that is attached in this tick cycle
   for (let i = 0; i < nProcesses;) {
@@ -102,21 +96,20 @@ function tickTicker(tm, dt) {
     } else
       i++;
   }
-};
+});
 
-function assignAsDefaultTo(...processes) {
-  if (processes.length === 1 && Array.isArray(processes[0]))
-    processes = processes[0];
-  processes.forEach(process => {
-    if (typeof process !== 'object' || !process.isaProcess)
-      throw new Error(`ticker:assignAsDefaultTo: Invalid process parameter`);
-    if (process.isStarted) {
-      console.warn(`ticker:assignAsDefaultTo: Process '${process.name}' started. Cannot assign ticker`);
-      return this;
-    }
-    process.ticker = this;
-  })
-  return this;
+function attachTicker(ticker, process) {
+  if (ticker.tick === fNoop)
+    ticker.tick = method(tickTicker);
+  ticker.processes.push(process);
+}
+
+function detachTicker(ticker, process) {
+  const processes = ticker.processes;
+  const iProcess = processes.findIndex(proc => proc === process);
+  if (iProcess < 0)
+    throw new Error(`Ticker: Process '${process.name}' is not attached to ticker '${ticker.name}'`)
+  processes[iProcess] = undefined; // Let tick cycle remove the entry
 }
 
 function fNoop () { }
@@ -234,6 +227,8 @@ function _Process(cfg) {
   return this;
 };
 
+var tickProcess = declareMethod(_tickProcess);
+
 _Process.prototype = {
   start(ticker) {
     if (this.isStarted)
@@ -245,9 +240,9 @@ _Process.prototype = {
     } else
       this.ticker = this.defaultTicker;
     this.isStarted = true;
-    this.tick = tickProcess;
+    this.tick = method(tickProcess);
     if (this.msTimeout)
-      this.tick = getTimeoutFn(tickProcess.bind(this), this.msTimeout);
+      this.tick = getTimeoutFn(method(tickProcess).bind(this), this.msTimeout);
     this.gTick = this.onTick(this.state); // Create an instance of our generator.
     attachTicker(this.ticker, this);
     return this;
@@ -256,7 +251,7 @@ _Process.prototype = {
     if (!this.isStarted)
       return this;
     detachTicker(this.ticker, this);
-    _stop(this, 'stop');
+    stopProcess(this, 'stop');
     return this;
   },
   isAttached() {
@@ -275,7 +270,7 @@ _Process.prototype = {
   },
 };
 
-function tickProcess(tm, dt) {
+function _tickProcess(tm, dt) {
   // Manage the generators for this process.
   // Note that we preserve the state.data across calls.
   // Provides support for iterator like generators
@@ -292,14 +287,14 @@ function tickProcess(tm, dt) {
           this.gTick = this.gTickStack.pop();
           return;
         }
-        return _stop(this, 'done');
+        return stopProcess(this, 'done');
       }
       if (typeof value === 'function') {
       // Chain to this generator
         this.gTick = getGeneratorFunction(value)(state);
         return;
       }
-      return _stop(this, value === 'stop' ? 'stop' : 'done');
+      return stopProcess(this, value === 'stop' ? 'stop' : 'done');
     }
     // From yield statement
     if (!value)
@@ -311,11 +306,11 @@ function tickProcess(tm, dt) {
       this.gTick = getGeneratorFunction(value)(state);
       continue;
     }
-    return value === 'stop' ? _stop(this, 'stop') : undefined;
+    return value === 'stop' ? stopProcess(this, 'stop') : undefined;
   } while (true);
 }
 
-function _stop(process, rsn) {
+function stopProcess(process, rsn) {
   // May have already explicitly stopped the process
   if (!process.isStarted)
     return 'stopped';
@@ -335,7 +330,7 @@ function getTimeoutFn(onTick, msTimeout) {
     if (rc === 'stopped')
       return 'stopped';
     if ((msTimeout -= dt) <= 0)
-      return _stop(process, 'timeout');
+      return stopProcess(process, 'timeout');
   };
 }
 

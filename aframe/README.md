@@ -20,10 +20,6 @@ Keyboard event handler system. Integrates with *keymap* component.
 
 Keyboard key mapping component.
 
-### [ticker](./md/ticker.md)
-
-Aframe system and component implementation of the [Ticker](../ticker/README.md) tool.
-
 ### [misound](./md/misound.md)
 
 Extended version of the Aframe *sound* component.
@@ -40,6 +36,14 @@ Backgound music manager component.
 
 Button controller component.
 
+### [utils](./md/utils.md)
+
+Aframe and threejs utility services
+
+### [initialise](./md/initialise.md)
+
+Contains imports that must be processed in the applications *index.js*.
+
 ## IMPORTING
 
 There are no default imports for this package.
@@ -48,7 +52,7 @@ Aframe component and system modules can be imported as a complete group by impor
 
 ## VERSIONS
 
-0.9.2 - Aligns with the Aframe verion that the package is based on.
+0.1.0 - Based on Aframe 0.9.2
 
 ## AUTHORS
 

@@ -1,12 +1,16 @@
 {
   "name": "@micosmo/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Core Javascript language extensions",
   "main": "index.js",
-  "homepage": ".",
+  "homepage": "https://github.com/micosmogames/toolbox/blob/HEAD/core/README.md",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/micosmogames/toolbox.git"
+    "url": "git+https://github.com/micosmogames/toolbox.git",
+    "directory": "core"
+  },
+  "bugs": {
+    "email": "micosmogames@gmail.com"
   },
   "author": "Micosmo",
   "license": "ISC",
