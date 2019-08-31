@@ -28,6 +28,10 @@ Contains a decorator service to promote a function that accepts an object as the
 
 Alternate bind function that returns the same bound function for the same inputs.
 
+### [compare](./md/compare.md)
+
+Contains value comparison services.
+
 ### [string](./md/string.md)
 
 Contains a string building service.
@@ -54,7 +58,7 @@ const { copy, method, newPrivateSpace, ... } = require('@micosmo/core');
 
 ## VERSIONS
 
-* 0.1.2 - Fix repository path in package.json.
+* 0.1.2 - Fix repository path in package.json. Added *compare*. Fix to *bind*.
 * 0.1.1 - Rework of method (see [method](./md/method.md#HISTORY)) and context table fix to replicate
 * 0.1.0 - Initial release (DEPRECATED)
 

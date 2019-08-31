@@ -22,7 +22,7 @@ Library of systems, components and utilities for Aframe applications.
 
 ### [influence](./influence/README.md)
 
-Object construction through composition.
+Object construction through composition. (UNDER CONSTRUCTION)
 
 ### [core](./core/README.md)
 

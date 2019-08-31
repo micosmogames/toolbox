@@ -7,11 +7,11 @@ Aframe specific implementation of [@micosmo/ticker](./ticker.md)
 ### IMPORTING
 
 ```javascript
-const ticker = require('@micosmo/ticker/aframe-ticker');
+import * as ticker from '@micosmo/ticker/aframe-ticker';
 ```
 or
 ```javascript
-const { Ticker, startProcess, ... } = require('@micosmo/ticker/aframe-ticker');
+import { Ticker, startProcess, ... } from '@micosmo/ticker/aframe-ticker';
 ```
 
 ### SYSTEMS
@@ -34,7 +34,7 @@ None
 
 #### System: tocker
 
-Hosts the *DefaultTocker* in the systems *tock* method. The *tocker* system is not automatically registered at application startup. The application will need to call *startDefaultTocker* to regsiter and start the *DefaultTocker*.
+Hosts the *DefaultTocker* in the systems *tock* method. The *tocker* system is not automatically registered at application startup. The application will need to call *startDefaultTocker* to register and start the *DefaultTocker*.
 
 ##### METHODS
 
@@ -102,9 +102,9 @@ See [Object: Ticker](./ticker.md#OBJECTS).
 
 Export | Description
 -------- | -----------
-createProcess(onTick[,&nbsp;ticker]) | Returns a new Ticker process that has a default Ticker of *DefaultTicker* if the *ticker* parameter has not been provided. The *onTick* parameter is the process function. All function types are supported. See [RETURN-CODES](./ticker.md#RETURN-CODES) for a list of codes that can be returned from the *onTick* function. The *ticker* parameter can be either and actual *ticker* object, an entity element object or a selector identifying a specific entity element. A *locateTicker* method is used to resolve an entity element specification. The resolved ticker is assigned as the processes default ticker. See [Configuration:locateTicker](#CONFIGURATION-OBJECT) for more details.The process is not started. 
+createProcess(onTick[,&nbsp;ticker]) | Returns a new Ticker process that has a default Ticker of *DefaultTicker* if the *ticker* parameter has not been provided. The *onTick* parameter is the process function. All function types are supported. See [RETURN-CODES](./ticker.md#RETURN-CODES) for a list of codes that can be returned from the *onTick* function. The *ticker* parameter can be either and actual *ticker* object, an entity element object or a selector identifying a specific entity element. A *tryLocateTicker* method is used to resolve an entity element specification. The resolved ticker is assigned as the processes default ticker. See [Configuration:tryLocateTicker](#CONFIGURATION-OBJECT) for more details.The process is not started. 
 createProcess(cfg) | As per above except the Ticker process is defined by a configuration object. See [CONFIGURATION-OBJECT](#CONFIGURATION-OBJECT) for more detail.
-startProcess(onTick[,&nbsp;ticker]) | Returns a new Ticker process that has been started on the *DefaultTicker* if the *ticker* parameter has not been provided. The *onTick* parameter is the process function. All function types are supported. See [RETURN-CODES](./ticker.md#RETURN-CODES) for a list of codes that can be returned from the *onTick* function. The *ticker* parameter can be either and actual *ticker* object, an entity element object or a selector identifying a specific entity element. A *locateTicker* method is used to resolve an entity element specification. The resolved ticker is assigned as the processes default ticker. See [Configuration:locateTicker](#CONFIGURATION-OBJECT) for more details.The process is started.
+startProcess(onTick[,&nbsp;ticker]) | Returns a new Ticker process that has been started on the *DefaultTicker* if the *ticker* parameter has not been provided. The *onTick* parameter is the process function. All function types are supported. See [RETURN-CODES](./ticker.md#RETURN-CODES) for a list of codes that can be returned from the *onTick* function. The *ticker* parameter can be either and actual *ticker* object, an entity element object or a selector identifying a specific entity element. A *tryLocateTicker* method is used to resolve an entity element specification. The resolved ticker is assigned as the processes default ticker. See [Configuration:tryLocateTocker](#CONFIGURATION-OBJECT) for more details.The process is started.
 startProcess(cfg) | As per above except the Ticker process is defined by a configuration object. See [CONFIGURATION-OBJECT](#CONFIGURATION-OBJECT) for more detail.
 
 ##### METHODS & PROPERTIES
@@ -118,7 +118,9 @@ See [Object: Ticker Process](./ticker.md#OBJECTS).
 Function | Description
 -------- | -----------
 locateTicker(spec) | Locates a ticker based on the *spec*. If *spec* is *'default'* function returns *DefaultTicker*, if *spec* is any other string then it is assumed to be selector for a specific aframe entity. If *spec* is an actual ticker then the ticker is returned, otherwise the parameter is assumed to be an entity element. When the *spec* resolves to an entity element, the function searches for a *ticker* component along the entity parent element path starting at the *spec* element. If a *ticker* component is located then the ticker object that is hosted by the component is returned. If no *ticker* component was located then a warning is written to the browsers console log and *DefaultTicker* is returned.
+tryLocateTicker(spec) | As for *locateTicker* except that no warning is issued if the *DefaultTicker* is returned.
 locateTocker(startEl) | As for *locateTicker* except that a search will be for a *tocker* component. Note that *aframe-ticker* creates a *DefaultTocker* ticker object.
+tryLocateTocker(spec) | As for *locateTocker* except that no warning is issued if the *DefaultTocker* is returned.
 getTicker(spec) | The *spec* parameter is as for *locateTicker*, but if resolved to an entity element then the element must have an Aframe *ticker* component and the function will return the ticker that is hosted by the component.
 getTocker(spec) | As for *getTicker* except an entity element *spec* nust resolve to an element with an Aframe *tocker* component.
 startDefaultTocker() | Registers the Aframe *tocker* system which hosts and starts the *DefaultTocker*. The *ticker* system is registered and hosts the *DefaultTicker* which is started during application initialisation.
@@ -149,7 +151,9 @@ sTimeout | See [ticker:sTimeout](./ticker.md#CONFIGURATION-OBJECT).
 ticker | Can be set to a ticker object, *'default'* which assigns the *DefaultTicker*, other string which is assumed to be selector for a specific aframe entity or an entity element object. When the value resolves to an entity element then the element must have an Aframe *ticker* component and the ticker that is hosted by the component is assigned.
 tocker | Can be set to a ticker object, *'default'* which assigns the *DefaultTocker*, other string which is assumed to be selector for a specific aframe entity or an entity element object. When the value resolves to an entity element then the element must have an Aframe *tocker* component and the ticker that is hosted by the component is assigned.
 locateTicker | Can be set to a ticker object, *'default'* which assigns the *DefaultTicker*, other string which is assumed to be selector for a specific aframe entity or an entity element object. When the value resolves to an entity element, the function searches for a *ticker* component along the entity parent element path starting at the specified element. If a *ticker* component is located then the ticker object that is hosted by the component is assigned. If no ticker component was located then a warning is written to the browsers console log and *DefaultTicker* is assigned.
+tryLocateTicker | As for *locateTicker* except that no warning is issued if the *DefaultTicker* is returned.
 locateTocker | Can be set to a ticker object, *'default'* which assigns the *DefaultTocker*, other string which is assumed to be selector for a specific aframe entity or an entity element object. When the value resolves to an entity element, the function searches for a *tocker* component along the entity parent element path starting at the specified element. If a *tocker* component is located then the ticker object that is hosted by the component is assigned. If no *tocker* component was located then a warning is written to the browsers console log and *DefaultTocker* is assigned.
+tryLocateTocker | As for *locateTocker* except that no warning is issued if the *DefaultTocker* is returned.
 
 ### RETURN-CODES
 

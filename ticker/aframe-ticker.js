@@ -42,8 +42,10 @@ function processArgs(fn, args) {
     cfg = args[0];
     //    ticker: ticker | el | selector (non-cascading) | default
     //    locateTicker: el | selector (cascading)
+    //    tryLocateTicker: el | selector (cascading)
     //    tocker: ticker | el | selector (non-cascading) | default
     //    locateTocker: el | selector (cascading)
+    //    tryLocateTocker: el | selector (cascading)
     let cnt = 0;
     if ((tkr = cfg.ticker)) {
       fTyTicker = sel => getTicker(sel);
@@ -52,6 +54,10 @@ function processArgs(fn, args) {
       fTyTicker = sel => locateTicker(sel);
       delete cfg.locateTicker;
       cnt++;
+    } else if ((tkr = cfg.tryLocateTicker)) {
+      fTyTicker = sel => tryLocateTicker(sel);
+      delete cfg.tryLocateTicker;
+      cnt++;
     } else if ((tkr = cfg.tocker)) {
       fTyTicker = sel => getTocker(sel);
       delete cfg.tocker;
@@ -59,6 +65,10 @@ function processArgs(fn, args) {
     } else if ((tkr = cfg.locateTocker)) {
       fTyTicker = sel => locateTocker(sel);
       delete cfg.locateTocker;
+      cnt++;
+    } else if ((tkr = cfg.tryLocateTocker)) {
+      fTyTicker = sel => tryLocateTocker(sel);
+      delete cfg.tryLocateTocker;
       cnt++;
     }
     if (cnt > 1)
@@ -82,7 +92,11 @@ function processArgs(fn, args) {
 }
 
 export function locateTicker(startEl) {
-  return _locateTicker(startEl, 'locateTicker');
+  return _locateTicker(startEl, 'locateTicker', true);
+}
+
+export function tryLocateTicker(startEl) {
+  return _locateTicker(startEl, 'locateTicker', false);
 }
 
 export function getTicker(el) {
@@ -90,14 +104,18 @@ export function getTicker(el) {
 }
 
 export function locateTocker(startEl) {
-  return _locateTicker(startEl, 'locateTocker');
+  return _locateTicker(startEl, 'locateTocker', true);
+}
+
+export function tryLocateTocker(startEl) {
+  return _locateTicker(startEl, 'locateTocker', false);
 }
 
 export function getTocker(el) {
   return _getTicker(el, 'getTocker');
 }
 
-function _locateTicker(startEl, fn) {
+function _locateTicker(startEl, fn, flWarning) {
   if (typeof startEl === 'string') {
     if (startEl === 'default')
       return fn === 'locateTocker' ? defTocker : defTicker;
@@ -114,7 +132,8 @@ function _locateTicker(startEl, fn) {
     if (el === startEl.sceneEl)
       break;
   }
-  console.warn(`ticker:${fn}: No ${fn === 'locateTocker' ? 'tockers' : 'tickers'} visible in element hierarchy. Attaching to default. Start element ${startEl}`);
+  if (flWarning)
+    console.warn(`ticker:${fn}: No ${fn === 'locateTocker' ? 'tockers' : 'tickers'} visible in element hierarchy. Attaching to default. Start element ${startEl}`);
   return fn === 'locateTocker' ? defTocker : defTicker;
 }
 

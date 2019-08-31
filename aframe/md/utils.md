@@ -15,7 +15,7 @@ import { instantiate, ... } from '@micosmo/aframe/lib/utils';
 Function | Description
 -------- | -----------
 stringifyRotation(r) | Return a string representation of a rotation in either Euler, Matrix4 or Quaternion form.
-instantiate(o) | Dynamically instantiate a html snippet and return the root element of the snippet.
+instantiate(o) | Dynamically instantiate a html snippet and return the root element of the snippet. Currently only supports *o* in string format.
 isVisibleInScene(el) | Traverse the parent hierarchy and determine if *el* is visible in the scene. Return a boolean.
 
 ## LICENSE

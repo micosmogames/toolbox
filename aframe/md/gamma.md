@@ -1,25 +1,34 @@
-# @micosmo/core/bind
+# @micosmo/aframe/gamma
 
-Contains an alternate *bind* function that will return the same bound function instance for the same inputs.
+Aframe component to enable or disable gamma output on the scene's renderer.
 
 ## API
 
 ### IMPORTING
 
 ```javascript
-const { bind } = require('@micosmo/core/bind');
+import require('@micosmo/aframe/gamma');
 ```
 
-### EXPORTS
+### COMPONENTS
 
-Function | Description
--------- | -----------
-bind(f,&nbsp;o) | Return a bound function of *f* for *o*. Returns the same bound function for the same *f* and *o*.
+#### Component: gamma
 
-## HISTORY
+Enable or disable gamma output on the scene's renderer.
 
-### Version - 0.1.2
-* Fixed bind issue where bound functions were being held beyond the life of the associated object. In many cases objects could not be garbage collected.
+##### SCHEMA
+
+Property | Type | Default | Description
+-------- | ---- | ------- | -----------
+schema | boolean | false | Enable or disable gamma output.
+
+##### METHODS
+
+None
+
+##### PROPERTIES
+
+None
 
 ## LICENSE
 

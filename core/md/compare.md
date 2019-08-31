@@ -1,25 +1,35 @@
-# @micosmo/core/bind
+# @micosmo/core/compare
 
-Contains an alternate *bind* function that will return the same bound function instance for the same inputs.
+Value comparison services.
 
 ## API
 
 ### IMPORTING
 
 ```javascript
-const { bind } = require('@micosmo/core/bind');
+var { equivalent, ... } = require('@micosmo/core/compare');
 ```
 
 ### EXPORTS
 
+#### FUNCTIONS
+
 Function | Description
 -------- | -----------
-bind(f,&nbsp;o) | Return a bound function of *f* for *o*. Returns the same bound function for the same *f* and *o*.
+equivalent(a1,&nbsp;a2) | Compares *v1* and *v2* for equivalence.
+equivalentArrays(a1,&nbsp;a2) | As for *equivalent* but assumes that the values are arrays.
+equivalentObjects(a1,&nbsp;a2) | As for *equivalent* but assumes that the values are objects but not arrays or functions.
 
-## HISTORY
+#### PROPERTIES
 
-### Version - 0.1.2
-* Fixed bind issue where bound functions were being held beyond the life of the associated object. In many cases objects could not be garbage collected.
+None
+
+#### NOTES
+* All value types can be compared.
+* Values are considered equivalent if they have the same type and value(s).
+* Arrays and objects are recursively processed, and recursive references are detected.
+* *null* and *undefined* are considered equivalent.
+* Equivalent objects must have the same prototype.
 
 ## LICENSE
 

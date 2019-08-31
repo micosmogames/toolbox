@@ -27,13 +27,15 @@ aframe.registerComponent("gltf-blender-part", {
               return;
             }
             this.el.setObject3D("mesh", modelPart);
-            //  console.log('gltf-blender-part.getModel', this.data.src, this.data.part, this.el);
+            // console.log('gltf-blender-part.getModel', this.data.src, this.data.part, this.el);
 
             if (this.el.components.material !== undefined) {
               modelPart.material = this.el.components.material.material;
             }
+            // Becareful as trajectile command expects these events to be bubbled.
+            // Handlers of the events will need to discriminate by 'modelPart.name'.
             this.el.emit("model-loaded", { format: "gltf", model: modelPart });
-            this.el.emit("object3dset");
+            this.el.emit("object3dset", { type: this.data.findMesh ? 'mesh' : 'part', object: modelPart });
             resolve();
           });
         })

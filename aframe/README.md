@@ -36,6 +36,14 @@ Backgound music manager component.
 
 Button controller component.
 
+### [gltf-blender-part](./md/gltf-blender-part.md)
+
+Enable or disable gamma output on the scene's renderer.
+
+### [gamma](./md/gamma.md)
+
+Enable or disable gamma output on the scene's renderer.
+
 ### [utils](./md/utils.md)
 
 Aframe and threejs utility services

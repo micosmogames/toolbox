@@ -11,6 +11,6 @@ module.exports = {
 const BoundFunctions = new WeakMap();
 
 function bind(f, o) {
-  let t; const bindings = BoundFunctions.get(f) || (BoundFunctions.set(f, (t = new WeakMap())), t);
-  return bindings.get(o) || (bindings.set(o, (t = f.bind(o))), t);
+  let t; const bindings = BoundFunctions.get(o) || (BoundFunctions.set(o, (t = new WeakMap())), t);
+  return bindings.get(f) || (bindings.set(f, (t = f.bind(o))), t);
 }
