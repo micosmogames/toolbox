@@ -233,3 +233,30 @@ aframe.registerComponent("tocker", {
   pause: method(pause),
   play: method(play)
 });
+
+export function beater(s, ...args) {
+  return ticker.beater(s, beaterFunction(args));
+}
+
+export function sBeater(s, ...args) {
+  return ticker.sBeater(s, beaterFunction(args));
+}
+
+export function msBeater(ms, ...args) {
+  return ticker.msBeater(ms, beaterFunction(args));
+}
+
+function beaterFunction(args) {
+  const [spec, evt] = args;
+  if (!spec)
+    throw new Error(`micosmo:aframe-ticker:beaterFunction: Function or element spec and event name required`);
+  if (typeof spec === 'function')
+    return spec;
+  const el = typeof spec === 'string' ? document.querySelector(spec) : spec;
+  if (!el)
+    throw new Error(`micosmo:aframe-ticker:beaterFunction: Invalid document selector '${spec}'`);
+  return function (tm, dt, data, name) {
+    el.emit(evt || 'heartbeat', { name, elapsed: data }, false);
+    return 'more';
+  }
+}

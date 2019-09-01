@@ -124,6 +124,9 @@ tryLocateTocker(spec) | As for *locateTocker* except that no warning is issued i
 getTicker(spec) | The *spec* parameter is as for *locateTicker*, but if resolved to an entity element then the element must have an Aframe *ticker* component and the function will return the ticker that is hosted by the component.
 getTocker(spec) | As for *getTicker* except an entity element *spec* nust resolve to an element with an Aframe *tocker* component.
 startDefaultTocker() | Registers the Aframe *tocker* system which hosts and starts the *DefaultTocker*. The *ticker* system is registered and hosts the *DefaultTicker* which is started during application initialisation.
+beater(s,&nbsp;elSpec[,&nbsp;evt]) | Extension of [ticker:beater](./ticker.md#EXPORTS) that allows an element specification (*elSpec* can be a selector or an element object) and an optional event name (*evt*) as an alternative to the function parameter. If supplied an internal function is passed to the *beater* that will emit (no bubbling) an event to the resolved element. The event name will default to *heartbeat* if *evt* is not provided. The name of the Ticker process is passed as the event *detail* value for filtering of events.
+sBeater(s,&nbsp;elSpec[,&nbsp;evt]) | Extension of [ticker:sBeater](./ticker.md#EXPORTS) with alternative parameters as per *beater* above.
+msBeater(ms,&nbsp;elSpec[,&nbsp;evt]) | Extension of [ticker:msBeater](./ticker.md#EXPORTS) with alternative parameters as per *beater* above.
 iterator(...af), | See [ticker:iterator](./ticker.md#EXPORTS).
 looper(count,&nbsp;f) | See [ticker:looper](./ticker.md#EXPORTS). 
 timer(s,&nbsp;f) | See [ticker:timer](./ticker.md#EXPORTS).

@@ -10,6 +10,7 @@ var { declareMethod, method } = require('../core/method');
 const ProtGenFn = Object.getPrototypeOf(function * () { });
 const TickerPrototype = _TickerPrototype();
 const DefaultTicker = Ticker('DefaultTicker');
+var idTickerProcess = 1;
 
 module.exports = {
   startProcess,
@@ -24,12 +25,15 @@ module.exports = {
   waiter,
   sWaiter,
   msWaiter,
+  beater,
+  sBeater,
+  msBeater,
 };
 
 // Ticker handler
 function Ticker(name) {
   if (typeof name !== 'string')
-    throw new Error(`Ticker: Name is required`)
+    throw new Error(`micosmo:Ticker: Name is required`)
   return Object.setPrototypeOf({
     isaTicker: true,
     isStarted: true,
@@ -46,9 +50,9 @@ function _TickerPrototype() {
         processes = processes[0];
       processes.forEach(process => {
         if (typeof process !== 'object' || !process.isaProcess)
-          throw new Error(`ticker:assignAsDefaultTo: Invalid process parameter`);
+          throw new Error(`micosmo:ticker:assignAsDefaultTo: Invalid process parameter`);
         if (process.isStarted) {
-          console.warn(`ticker:assignAsDefaultTo: Process '${process.name}' started. Cannot assign ticker`);
+          console.warn(`micosmo:ticker:assignAsDefaultTo: Process '${process.name}' started. Cannot assign ticker`);
           return this;
         }
         process.ticker = this;
@@ -108,7 +112,7 @@ function detachTicker(ticker, process) {
   const processes = ticker.processes;
   const iProcess = processes.findIndex(proc => proc === process);
   if (iProcess < 0)
-    throw new Error(`Ticker: Process '${process.name}' is not attached to ticker '${ticker.name}'`)
+    throw new Error(`micosmo:ticker: Process '${process.name}' is not attached to ticker '${ticker.name}'`)
   processes[iProcess] = undefined; // Let tick cycle remove the entry
 }
 
@@ -125,7 +129,7 @@ function fNoop () { }
 //    onEnd: Function dispatched at end of process. Always dispatched. Parms(flTimeout)
 //    msTimeout: Timeout interval in milliseconds.
 //    sTimeout: Timeout interval in seconds
-//    ticker: ticker
+//    micosmo:ticker: ticker
 //  }
 function startProcess(...args) {
   return new _Process(validateArgs('startProcess', ...args)).start();
@@ -137,11 +141,11 @@ function createProcess(...args) {
 
 function validateArgs(fn, ...args) {
   const cfg = {};
-  const msg = `ticker:${fn}: Invalid parameter`;
+  const msg = `micosmo:ticker:${fn}: Invalid parameter`;
   var flCfgPassed = false;
   switch (args.length) {
   case 0:
-    throw new Error(`ticker:${fn}: onTick or configuration parameter required`);
+    throw new Error(`micosmo:ticker:${fn}: onTick or configuration parameter required`);
   case 1:
     mapArg(cfg, args, 0, msg,
       [['function', 'onTick'], ['object', o => { flCfgPassed = true; Object.assign(cfg, o) }]]);
@@ -151,47 +155,48 @@ function validateArgs(fn, ...args) {
     mapArg(cfg, args, 1, msg, [['object', 'ticker']]);
     break;
   default:
-    throw new Error(`ticker:${fn}: Too many parameters`);
+    throw new Error(`micosmo:ticker:${fn}: Too many parameters`);
   }
   return validateConfig(fn, cfg, flCfgPassed);
 }
 
 function validateConfig(fn, cfg, flCfgPassed) {
   //    name: Name of the process. String
+  const id = idTickerProcess++;
   if (!cfg.name)
-    cfg.name = '<anonymous>'
+    cfg.name = `<TickerProcess:${id}>`
   else if (typeof cfg.name !== 'string')
-    throw new Error(`ticker:${fn}: Invalid 'name' (${cfg.name})`);
+    throw new Error(`micosmo:ticker:${fn}: Invalid 'name' (${cfg.name})`);
   //    onTick: function or generator function
   if (!cfg.onTick)
-    throw new Error(`ticker:${fn}: 'onTick' function required`);
+    throw new Error(`micosmo:ticker:${fn}: 'onTick' function required`);
   else if (typeof cfg.onTick !== 'function')
-    throw new Error(`ticker:${fn}: Invalid 'onTick' (${typeof cfg.onTick})`);
-  //    ticker: ticker
+    throw new Error(`micosmo:ticker:${fn}: Invalid 'onTick' (${typeof cfg.onTick})`);
+  //    micosmo:ticker: ticker
   if (!cfg.ticker)
     cfg.ticker = DefaultTicker;
   else if (!cfg.ticker.isaTicker)
-    throw new Error(`ticker:${fn}: 'ticker' is not a Ticker`);
+    throw new Error(`micosmo:ticker:${fn}: 'ticker' is not a Ticker`);
   if (flCfgPassed) {
     //    onEnd: Function dispatched at end of process. Always dispatched. Parms(process, flTimeout)
     if (cfg.onEnd) {
       if (typeof cfg.onEnd !== 'function')
-        throw new Error(`ticker:${fn}: Invalid 'onEnd' (${typeof cfg.onEnd})`);
+        throw new Error(`micosmo:ticker:${fn}: Invalid 'onEnd' (${typeof cfg.onEnd})`);
       this.onEnd = cfg.onEnd;
     }
     //    msTimeout: Timeout interval in milliseconds.
     //    sTimeout: Timeout interval in seconds
     if (cfg.sTimeout && cfg.msTimeout)
-      throw new Error(`ticker:${fn}: Either 'sTimeout' or 'msTimeout'`);
+      throw new Error(`micosmo:ticker:${fn}: Either 'sTimeout' or 'msTimeout'`);
     if (!cfg.msTimeout) {
       if (cfg.sTimeout) {
         if (typeof cfg.sTimeout !== 'number' || cfg.sTimeout <= 0)
-          throw new Error(`ticker:${fn}: Invalid 'sTimeout' (${typeof cfg.sTimeout})`);
+          throw new Error(`micosmo:ticker:${fn}: Invalid 'sTimeout' (${typeof cfg.sTimeout})`);
         cfg.msTimeout = cfg.sTimeout * 1000;
         delete cfg.sTimeout;
       }
     } else if (typeof cfg.msTimeout !== 'number' || cfg.msTimeout <= 0)
-      throw new Error(`ticker:${fn}: Invalid 'msTimeout' (${typeof cfg.msTimeout})`);
+      throw new Error(`micosmo:ticker:${fn}: Invalid 'msTimeout' (${typeof cfg.msTimeout})`);
   }
   return cfg
 }
@@ -232,10 +237,10 @@ var tickProcess = declareMethod(_tickProcess);
 _Process.prototype = {
   start(ticker) {
     if (this.isStarted)
-      throw new Error(`ticker:process:start: Process '${this.name}' already started`);
+      throw new Error(`micosmo:ticker:process:start: Process '${this.name}' already started`);
     if (ticker) {
       if (typeof ticker !== 'object' || !ticker.isaTicker)
-        throw new Error(`ticker:process:start: Invalid ticker parameter`);
+        throw new Error(`micosmo:ticker:process:start: Invalid ticker parameter`);
       this.ticker = ticker;
     } else
       this.ticker = this.defaultTicker;
@@ -294,7 +299,17 @@ function _tickProcess(tm, dt) {
         this.gTick = getGeneratorFunction(value)(state);
         return;
       }
-      return stopProcess(this, value === 'stop' ? 'stop' : 'done');
+      if (value !== 'stop') {
+        if (!this._haveIssuedBadReturnCodeWarning)
+          console.warn(`micosmo:ticker:process:tick: Process '${this.name}' received an invalid return code '${value}'. Assumed 'done'.`);
+        this._haveIssuedBadReturnCodeWarning = true;
+        if (this.gTickStack.length > 0) {
+          this.gTick = this.gTickStack.pop();
+          return;
+        }
+        return stopProcess(this, 'done');
+      }
+      return stopProcess(this, 'stop');
     }
     // From yield statement
     if (!value)
@@ -343,7 +358,7 @@ function getGeneratorFunction(f) {
 function makeGeneratorFunction(f) {
   return function * (state) {
     do {
-      const resp = f(state.tm, state.dt, state.data);
+      const resp = f(state.tm, state.dt, state.data, state.name);
       if (!resp || resp === 'done')
         return;
       else if (resp === 'more')
@@ -362,7 +377,7 @@ function isaGeneratorFunction(f) {
 
 function looper(count, f) {
   if (typeof count !== 'number' || typeof f !== 'function')
-    throw new Error(`ticker:looper: Invalid parameter`);
+    throw new Error(`micosmo:ticker:looper: Invalid parameter`);
   return function * (state) {
     for (let i = 0; i < count; i++) {
       state.data = i;
@@ -383,7 +398,7 @@ function iterator(...af) {
 
 function waiter(s, f) {
   if (s >= 50)
-    throw new Error(`ticker:waiter: Time unit maybe milliseconds. Use sWaiter otherwise`);
+    throw new Error(`micosmo:ticker:waiter: Time unit maybe milliseconds. Use sWaiter otherwise`);
   return msWaiter(s * 1000, f);
 }
 
@@ -393,7 +408,7 @@ function sWaiter(s, f) {
 
 function msWaiter(ms, f) {
   if (typeof ms !== 'number')
-    throw new Error(`ticker:msWaiter: Invalid parameter`);
+    throw new Error(`micosmo:ticker:msWaiter: Invalid parameter`);
   return function * (state) {
     for (let t = ms; t > 0; t -= state.dt)
       yield;
@@ -403,7 +418,7 @@ function msWaiter(ms, f) {
 
 function timer(s, f) {
   if (s >= 50)
-    throw new Error(`ticker:timer: Time unit maybe milliseconds. Use sTimer otherwise`);
+    throw new Error(`micosmo:ticker:timer: Time unit maybe milliseconds. Use sTimer otherwise`);
   return msTimer(s * 1000, f);
 }
 
@@ -413,7 +428,7 @@ function sTimer(s, f) {
 
 function msTimer(ms, f) {
   if (typeof ms !== 'number' || typeof f !== 'function')
-    throw new Error(`ticker:msTimer: Invalid parameter`);
+    throw new Error(`micosmo:ticker:msTimer: Invalid parameter`);
   return isaGeneratorFunction(f) ? msGenTimer(ms, f) : msFuncTimer(ms, f);
 }
 
@@ -433,8 +448,56 @@ function msGenTimer(ms, f) {
 function msFuncTimer(ms, f) {
   return function * (state) {
     for (let t = ms; t > 0; t -= state.dt) {
-      state.data = t;
-      const resp = f(state.tm, state.dt, t);
+      const resp = f(state.tm, state.dt, t, state.name);
+      if (resp === 'more')
+        yield
+      else
+        return resp; // undefined, 'done, 'stop' or chained function
+    }
+  }
+}
+
+function beater(s, f) {
+  if (s >= 50)
+    throw new Error(`micosmo:ticker:beater: Time unit maybe milliseconds. Use sBeater otherwise`);
+  return _msBeater(s * 1000, f, true);
+}
+
+function sBeater(s, f) {
+  return _msBeater(s * 1000, f, true);
+}
+
+function msBeater(ms, f) {
+  return _msBeater(ms, f, false);
+}
+
+function _msBeater(ms, f, isInSeconds) {
+  if (typeof ms !== 'number' || typeof f !== 'function')
+    throw new Error(`micosmo:ticker:msBeater: Invalid parameter`);
+  return isaGeneratorFunction(f) ? msGenBeater(ms, f, isInSeconds) : msFuncBeater(ms, f, isInSeconds);
+}
+
+function msGenBeater(ms, f, isInSeconds) {
+  return function * (state) {
+    const fi = f(state);
+    for (let t = 0, it = ms; ; it += ms, t += ms) {
+      for (; it > 0; it -= state.dt)
+        yield;
+      state.data = isInSeconds ? Math.trunc(t / 1000) : t;
+      const resp = fi.next();
+      if (resp.done)
+        return resp.value;
+      yield resp.value;
+    }
+  }
+}
+
+function msFuncBeater(ms, f, isInSeconds) {
+  return function * (state) {
+    for (let t = 0, it = ms; ; it += ms) {
+      for (; it > 0; it -= state.dt, t += state.dt)
+        yield;
+      const resp = f(state.tm, state.dt, isInSeconds ? Math.trunc(t / 1000) : t, state.name);
       if (resp === 'more')
         yield
       else

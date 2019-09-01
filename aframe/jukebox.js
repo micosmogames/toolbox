@@ -90,15 +90,21 @@ aframe.registerComponent("jukebox", {
       this.tracks = copyValues(this.data.tracks);
   },
   remove() {
-    this.stopCurrentTrack();
+    this.el.setAttribute('jukebox', 'state', 'off');
   },
 
   stopCurrentTrack() {
     if (this.currentSound) {
-      this.currentSound.stopSound();
       this.currentSound.el.removeEventListener('sound-ended', bind(soundEndedListener, this));
+      this.currentSound.stopSound();
     }
     this.currentSound = undefined;
+  },
+  startNextTrack() {
+    if (this.currentSound)
+      this.currentSound.stopSound();
+    else
+      this.selectNextTrack();
   },
   pauseCurrentTrack() {
     if (this.currentSound && !this.isPaused) {
@@ -124,7 +130,7 @@ aframe.registerComponent("jukebox", {
     this.currentSound.setPlaybackRate(this.playbackRate);
     if (this.data.volume !== 1)
       this.currentSound.setVolume(this.data.volume);
-    // createProcess(waiter(20, () => this.selectNextTrack())).start();
+    // createProcess(waiter(10, () => { this.startNextTrack() })).start();
     this.currentSound.playSound();
     this.currentSound.el.addEventListener('sound-ended', bind(soundEndedListener, this));
     if (this.isPaused)

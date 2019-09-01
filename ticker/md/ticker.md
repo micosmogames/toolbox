@@ -77,6 +77,9 @@ name | The name of the Ticker process. If not provided will be set to *&lt;anony
 
 Function | Description
 -------- | -----------
+beater(s,&nbsp;f) | Creates a beating Ticker process step that will dispatch the *f* function at intervals of *s* seconds. A *beater* will continue to beat until either *f* is *done*, the *beater* is wrapped in a *timer*, the Ticker process has been configured with a timeout period or the Ticker process is stopped. An error will occur if *s* is greater than 50 assuming that the beat cycle may be specified in milliseconds. Use *sBeater* instead.
+sBeater(s,&nbsp;f) | Same as *beater* except larger beat cycles can be specified.
+msBeater(ms,&nbsp;f) | Same as *beater* except the beat cycle is expressed in milliseconds.
 iterator(...af), | Creates an iterating Ticker process step that will perform each function in the *af* list in sequence. Each _f_ of *af* must return a *done* response to trigger the next *f* to be dispatched. The *af* parameter may be a single array of functions, or one or more functions in the parameter list.
 looper(count,&nbsp;f) | Creates a looping Ticker process step that will execute the function *f count* times. Note that *count* does not refer to the number of timer tick cycles. The function *f* must return a *done* response to trigger the next loop iteration.
 timer(s,&nbsp;f) | Creates a timer Ticker process step that will execute the function *f* for *s* seconds. The function _f_ can interrupt the timer by returning a *done* reponse. An error will occur if *s* is greater than 50 assuming that the interval may be specified in milliseconds. Use *sTimer* instead.
@@ -99,7 +102,7 @@ The *startProcess*/*createProcess* configuration object provides additional inpu
 Property | Description
 -------- | -----------
 name | The name to be associated with the process. Optional, defaults to *&lt;anonymous&gt;*.
-onTick | The function or generator function that is to be dispatched on each tick cycle. A function will be passed up to 3 parameters, *tm* is the current time, *dt* is delta from the last tick cycle and *data* is additional information depending on the call. For *looper* *data* is the iteration number and for *timer* *data* is the remaining time. Generator functions receive a *state* parameter when initialised that contains *tm*, *dt* and *data* properties. These properties are updated prior to each *next()* call. See [RETURN-CODES](#RETURN-CODES) for a list of return codes. Required.
+onTick | The function or generator function that is to be dispatched on each tick cycle. A function will be passed 4 parameters, *tm* is the current time, *dt* is delta from the last tick cycle, *data* is additional information depending on the call and the *name* of the process. For *looper* *data* is the iteration number, for *timer* *data* is the remaining time and for *beater* *data* is the elapsed time in the same time unit as the specified beat cycle. Generator functions receive a *state* parameter when initialised that contains *tm*, *dt*, *data* and *name* properties. These properties are updated (except *name*) prior to each *next()* call. See [RETURN-CODES](#RETURN-CODES) for a list of return codes. Required.
 onEnd | Standard function that is always dispatched at end of the Ticker process, regardless of how the process is ended. Two parameters are passed, *rsn* is the reason code (*done*, *stop* or *timeout*) for how the process ended, and *process* is the reference to the Ticker process that has ended. Optional.
 msTimeout | Ticker process level timeout period expressed in milliseconds. Optional.
 sTimeout | Ticker process level timeout period expressed in seconds. Optional.

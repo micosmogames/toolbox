@@ -1,7 +1,8 @@
 /* global THREE */
 import aframe from "aframe";
 import { copyValues } from '@micosmo/core';
-import { startProcess, msWaiter } from '@micosmo/ticker/aframe-ticker';
+import { onLoadedDo } from '@micosmo/aframe/startup';
+import { startProcess, msWaiter, iterator, msTimer, tryLocateTicker } from '@micosmo/ticker/aframe-ticker';
 
 aframe.registerComponent('misound', {
   schema: {
@@ -17,19 +18,19 @@ aframe.registerComponent('misound', {
     poolSize: { default: 1 },
     positional: { default: true },
     refDistance: { default: 1 },
+    fade: { default: 0 }, // Proportion of sound duration to apply fading
     repeat: {
       default: {},
       parse: function(v) {
         return typeof v === "object" ? v : (() => {
-          const [count, interval, fade] = v.split(',').map(s => Number.parseFloat(s.trim(' ')));
+          const [count, interval] = v.split(',').map(s => Number.parseFloat(s.trim(' ')));
           return {
             count: count || 0,
             interval: interval || 0, // Wait interval im milliseconds
-            fade: fade || 0 // Amount to decrease from the volume
           };
         })();
       },
-      stringify: v => `{count:${v.count},interval:${v.interval},fade:${v.fade}}`
+      stringify: v => `{ count:${v.count}, interval:${v.interval} }`
     },
     rolloffFactor: { default: 1 },
     src: { type: 'audio' },
@@ -46,8 +47,6 @@ aframe.registerComponent('misound', {
   multiple: true,
 
   init: function () {
-    var self = this;
-
     this.listener = null;
     this.audioLoader = new THREE.AudioLoader();
     this.pool = new THREE.Group();
@@ -56,7 +55,8 @@ aframe.registerComponent('misound', {
     this.state = this.data._state;
 
     // Don't pass evt because playSound takes a function as parameter.
-    this.playSoundBound = function () { self.playSound(); };
+    this.playSoundBound = () => this.playSound();
+    onLoadedDo(() => { this.ticker = tryLocateTicker(this.el) });
   },
 
   update: function (oldData) {
@@ -91,20 +91,20 @@ aframe.registerComponent('misound', {
 
     // All sound values set. Load in `src`.
     if (srcChanged) {
-      var self = this;
+      var misound = this;
 
       this.loaded = false;
       this.audioLoader.load(data.src, function (buffer) {
-        for (i = 0; i < self.pool.children.length; i++) {
-          sound = self.pool.children[i];
+        for (i = 0; i < misound.pool.children.length; i++) {
+          sound = misound.pool.children[i];
           sound.setBuffer(buffer);
         }
-        self.loaded = true;
+        misound.loaded = true;
 
         // Remove this key from cache, otherwise we can't play it again
         THREE.Cache.remove(data.src);
-        if (self.data.autoplay || self.mustPlay) { self.playSound(); }
-        self.el.emit('sound-loaded', self.evtDetail, false);
+        if (misound.data.autoplay || misound.mustPlay) { misound.playSound(); }
+        misound.el.emit('sound-loaded', misound.evtDetail, false);
       });
     }
   },
@@ -142,7 +142,7 @@ aframe.registerComponent('misound', {
       }
     } catch (e) {
       // disconnect() will throw if it was never connected initially.
-      console.warn('micosmo:component:misound:remove: Audio source not properly disconnected');
+      console.warn(`micosmo:component:misound:remove: Audio source not properly disconnected. Sound(${id(this)}`);
     }
   },
 
@@ -172,7 +172,7 @@ aframe.registerComponent('misound', {
 
     if (this.pool.children.length > 0) {
       this.stopSound();
-      el.removeObject3D('sound');
+      el.removeObject3D(this.attrName);
     }
 
     // Only want one AudioListener. Cache it on the scene.
@@ -257,7 +257,7 @@ aframe.registerComponent('misound', {
           this.pool.add(audio);
           audio.onEnded = fOnEnded(this, audio);
         } else if (this.data.poolPolicy === 'error') {
-          throw new Error('micosmo:component:misound:playSound: Maximum sound instances exceeded');
+          throw new Error(`micosmo:component:misound:playSound: Maximum sound instances exceeded. Sound(${id(this)})`);
         } else if (this.data.poolPolicy === 'discard') {
           const iAudio = findLongestRunningAudio(this);
           const audio = this.pool.children[iAudio];
@@ -267,17 +267,10 @@ aframe.registerComponent('misound', {
           return;
       }
     }
-    if (this.data.offset !== 0) {
-      for (let i = 0; i < this.pool.children.length; i++) {
-        const sound = this.pool.children[i];
-        if (!sound.isPlaying && !sound.isPaused)
-          sound.offset = this.data.offset;
-      }
-    }
 
     var found, i, sound;
     if (!this.loaded) {
-      console.warn('micosmo:component:misound:playSound: Sound not loaded yet. It will be played once it finished loading');
+      console.warn(`micosmo:component:misound:playSound: Sound not loaded yet. It will be played once it finished loading. Sound(${id(this)})`);
       this.mustPlay = true;
       return;
     }
@@ -291,10 +284,12 @@ aframe.registerComponent('misound', {
         if (processSound) { processSound(sound); }
         if (data.offset !== 0)
           sound.offset = data.offset; // Set the starting offset for the audio.
-        if (data.repeat.count > 0)
-          sound._repeat = copyValues(data.repeat);
         sound.setVolume(this.state.volume);
         sound.play();
+        if (data.repeat.count > 0)
+          sound._repeat = copyValues(data.repeat);
+        else if (data.fade)
+          startProcess(fadeoutFor(this, sound, sound.buffer.duration, data.fade), this.ticker);
         sound.isPaused = false;
         found = true;
         continue;
@@ -302,7 +297,7 @@ aframe.registerComponent('misound', {
     }
 
     if (!found) {
-      console.warn('micosmo:component:misound:playSound: All sound instances are playing. ');
+      console.warn(`micosmo:component:misound:playSound: All sound instances are playing. Sound(${id(this)})`);
       return;
     }
     this.mustPlay = false;
@@ -310,7 +305,7 @@ aframe.registerComponent('misound', {
   },
 
   /**
-   * Stop all the sounds in the pool.
+   * Stop all the sounds in the pool, after fading if requested
    */
   stopSound: function () {
     var i, sound;
@@ -324,9 +319,9 @@ aframe.registerComponent('misound', {
       delete sound._repeat;
     }
     if (this.nPlaying > 0) {
-      const detail = self.evtDetail;
+      const detail = this.evtDetail;
       detail.reason = 'stop';
-      self.el.emit('sound-ended', detail, false); // Make sure listeners know when sounds have stopped
+      this.el.emit('sound-ended', detail, false); // Make sure listeners know when sounds have stopped
       this.nPlaying = 0;
     }
   },
@@ -360,39 +355,51 @@ aframe.registerComponent('misound', {
       this.pool.children[i].setVolume(v);
     return v
   },
+
+  getDuration() {
+    return this.pool.children.length && this.pool.children[0].buffer ? this.pool.children[0].buffer.duration : 0;
+  }
 });
 
-function fOnEnded(self, audio) {
+function fOnEnded(misound, audio) {
   return function () {
     audio.stop(); // Need to clear the sound offset when the sound has ended.
-    if (audio._repeat) {
-      if (--audio._repeat.count > 0) {
-        if (self.data.offset !== 0)
-          audio.offset = self.data.offset; // Set the starting offset for the audio.
-        audio.setVolume(audio.getVolume() - audio._repeat.fade);
-        startProcess(msWaiter(audio._repeat.interval, () => {
-          if (self.isPaused) {
-            audio.play();
-            audio.pause();
-            audio.isPaused = true;
-          } else if (!self.isPlaying)
-            return;
-          audio.play();
-        }));
-        return;
-      }
-      delete audio._repeat;
-    }
-    if (--self.nPlaying <= 0) {
-      const detail = self.evtDetail;
+    if (repeatSound(misound, audio))
+      return;
+    if (--misound.nPlaying <= 0) {
+      const detail = misound.evtDetail;
       detail.reason = 'end';
-      self.el.emit('sound-ended', detail, false); // Only emit once all sounds have stopped playing.
-      self.nPlaying = 0;
-      self.isPlaying = false;
+      misound.el.emit('sound-ended', detail, false); // Only emit once all sounds have stopped playing.
+      misound.nPlaying = 0;
+      misound.isPlaying = false;
     }
   };
 };
 
+function repeatSound(misound, audio) {
+  if (!audio._repeat)
+    return false;
+  const fFadeout = fadeoutFor(misound, audio, audio.buffer.duration, misound.data.fade);
+  if (--audio._repeat.count > 0) {
+    if (misound.data.offset !== 0)
+      audio.offset = misound.data.offset; // Set the starting offset for the audio.
+    if (audio._repeat.count === 1 && misound.data.fade > 0) {
+      startProcess(iterator(msWaiter(audio._repeat.interval), () => { audio.play() }, fFadeout), misound.ticker);
+    } else
+      startProcess(msWaiter(audio._repeat.interval, () => { audio.play() }), misound.ticker);
+    return true;
+  }
+  delete audio._repeat;
+  return false;
+}
+
+function fadeoutFor(misound, audio, duration, fade) {
+  duration = duration * 1000;
+  return iterator(msTimer(duration, (tm, dt, remain) => {
+    audio.setVolume(misound.state.volume * (1 - (duration - remain * fade) / duration));
+    return 'more';
+  }), () => { audio.setVolume(misound.state.volume) });
+}
 function findLongestRunningAudio(sound) {
   let iAudio = 0;
   let longTime = sound.pool.children[0].context.currentTime;
@@ -404,4 +411,8 @@ function findLongestRunningAudio(sound) {
     }
   }
   return iAudio;
+}
+
+function id(misound) {
+  return misound.id || !misound.el.id ? misound.attrName : `Element:${misound.el.id}`;
 }
