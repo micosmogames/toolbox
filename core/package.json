@@ -16,5 +16,15 @@
   "license": "ISC",
   "dependencies": {},
   "devDependencies": {},
-  "scripts": {}
+  "scripts": {},
+  "keywords": [
+    "scope",
+    "scopes",
+    "private",
+    "copy",
+    "clone",
+    "method",
+    "equivalent",
+    "bind"
+  ]
 }

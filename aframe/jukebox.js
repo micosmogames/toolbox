@@ -1,6 +1,6 @@
 import aframe from "aframe";
 import { bindEvent } from "aframe-event-decorators";
-import { createProcess, waiter, timer } from "@micosmo/ticker/aframe-ticker";
+import { createProcess, waiter } from "@micosmo/ticker/aframe-ticker";
 import { onLoadedDo } from "./startup";
 import { copyValues, equivalentArrays, bind, declareMethod } from "@micosmo/core";
 
@@ -9,11 +9,6 @@ const states = [
   'off',
   'pause',
 ];
-
-const BasePlaybackRate = 1;
-const WarpPlaybackRate = 0.50;
-const WarpFadeDuration = 750;
-const WarpFadePerTick = (1 - WarpPlaybackRate) / WarpFadeDuration;
 
 aframe.registerComponent("jukebox", {
   schema: {
@@ -29,25 +24,15 @@ aframe.registerComponent("jukebox", {
     this.tracks = [];
     this.sounds = [];
     this.currentSound = undefined;
-    this.playbackRate = BasePlaybackRate;
     this.isPaused = false;
 
     const self = this;
     this.warpProcess = createProcess({
       name: 'JukeboxWarp',
       onTick: function * (state) {
-        yield timer(0.500, (tm, dt) => {
-          self.currentSound.setPlaybackRate(self.playbackRate -= dt * WarpFadePerTick);
-          return 'more';
-        });
-        yield waiter(self.warpDuration - 1);
-        yield timer(0.500, (tm, dt) => {
-          self.currentSound.setPlaybackRate(self.playbackRate += dt * WarpFadePerTick);
-          return 'more';
-        });
-      },
-      onEnd() {
-        self.currentSound.setPlaybackRate(self.playbackRate = BasePlaybackRate)
+        yield self.currentSound.warpInStep(1, 0.50);
+        yield waiter(self.warpDuration - 2);
+        yield self.currentSound.warpOutStep(1, 1);
       }
     });
     onLoadedDo(() => this.loadTracks());
@@ -127,7 +112,6 @@ aframe.registerComponent("jukebox", {
   },
   startCurrentTrack() {
     this.currentSound = this.sounds[this.data.currentTrack];
-    this.currentSound.setPlaybackRate(this.playbackRate);
     if (this.data.volume !== 1)
       this.currentSound.setVolume(this.data.volume);
     // createProcess(waiter(10, () => { this.startNextTrack() })).start();

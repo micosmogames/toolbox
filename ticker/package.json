@@ -18,5 +18,14 @@
     "@micosmo/core": "latest"
   },
   "devDependencies": {},
-  "scripts": {}
+  "scripts": {},
+  "keywords": [
+    "aframe",
+    "ticker",
+    "tick",
+    "tock",
+    "timer",
+    "timed",
+    "process"
+  ]
 }

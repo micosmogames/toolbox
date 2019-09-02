@@ -1,8 +1,15 @@
+/*
+ * misound.js
+ *
+ * An extended version of the Aframe 0.9.2 sound component.
+ */
+
 /* global THREE */
 import aframe from "aframe";
+import { bindEvent } from 'aframe-event-decorators';
 import { copyValues } from '@micosmo/core';
-import { onLoadedDo } from '@micosmo/aframe/startup';
-import { startProcess, msWaiter, iterator, msTimer, tryLocateTicker } from '@micosmo/ticker/aframe-ticker';
+import { onLoadedDo } from './startup';
+import { startProcess, msWaiter, iterator, msTimer, timer, tryLocateTicker } from '@micosmo/ticker/aframe-ticker';
 
 aframe.registerComponent('misound', {
   schema: {
@@ -10,7 +17,7 @@ aframe.registerComponent('misound', {
     distanceModel: { default: 'inverse', oneOf: ['linear', 'inverse', 'exponential'] },
     loop: { default: false },
     maxDistance: { default: 10000 },
-    maxPoolsize: { default: 1 }, // Poolsize can be dynamically extended up to this number.
+    maxPoolSize: { default: 1 }, // Poolsize can be dynamically extended up to this number.
     offset: { default: 0 },
     on: { default: '' },
     pausePolicy: { default: 'pause', oneOf: ['pause', 'stop'] },
@@ -18,7 +25,9 @@ aframe.registerComponent('misound', {
     poolSize: { default: 1 },
     positional: { default: true },
     refDistance: { default: 1 },
-    fade: { default: 0 }, // Proportion of sound duration to apply fading
+    fadeIn: { default: 0 }, // Proportion of sound duration to apply fadein
+    fadeOut: { default: 0 }, // Proportion of sound duration to apply fadeout
+    playbackRate: { default: 1 }, // Playback rate expressed as a proportion of the full rate.
     repeat: {
       default: {},
       parse: function(v) {
@@ -82,8 +91,10 @@ aframe.registerComponent('misound', {
       sound.setLoop(data.loop);
       sound.isPaused = false;
     }
-    if (!this.state.volume)
+    if (!this.state.volume) {
       this.state.volume = data.volume; // Only initialise volume. this.data.volume is the default.
+      this.state.playbackRate = data.playbackRate; // Only initialise playbackRate. this.data.playbackRate is the default.
+    }
 
     if (data.on !== oldData.on) {
       this.updateEventListener(oldData.on);
@@ -145,6 +156,10 @@ aframe.registerComponent('misound', {
       console.warn(`micosmo:component:misound:remove: Audio source not properly disconnected. Sound(${id(this)}`);
     }
   },
+
+  'pool-return': bindEvent(function () {
+    this.stopSound(); // Stop the sound as it is going back into a pool
+  }),
 
   /**
   *  Update listener attached to the user defined on event.
@@ -285,11 +300,14 @@ aframe.registerComponent('misound', {
         if (data.offset !== 0)
           sound.offset = data.offset; // Set the starting offset for the audio.
         sound.setVolume(this.state.volume);
+        sound.setPlaybackRate(this.state.playbackRate);
+        if (data.fadeIn)
+          startProcess(fadeInFor(this, sound, sound.buffer.duration, data.fadeIn), this.ticker);
         sound.play();
         if (data.repeat.count > 0)
           sound._repeat = copyValues(data.repeat);
-        else if (data.fade)
-          startProcess(fadeoutFor(this, sound, sound.buffer.duration, data.fade), this.ticker);
+        else if (data.fadeOut && !data.fadeIn)
+          startProcess(fadeOutFor(this, sound, sound.buffer.duration, data.fadeOut), this.ticker);
         sound.isPaused = false;
         found = true;
         continue;
@@ -331,7 +349,7 @@ aframe.registerComponent('misound', {
   },
 
   setPlaybackRate(rate) {
-    this.state.playbackRate = rate;
+    this.state.playbackRate = rate || (rate = this.data.playbackRate);
     for (let i = 0; i < this.pool.children.length; i++) {
       const sound = this.pool.children[i];
       if (sound.isPlaying) {
@@ -358,6 +376,33 @@ aframe.registerComponent('misound', {
 
   getDuration() {
     return this.pool.children.length && this.pool.children[0].buffer ? this.pool.children[0].buffer.duration : 0;
+  },
+
+  warpInStep(s, targetRate) {
+    const dtRate = this.state.playbackRate - this.data.playbackRate * targetRate;
+    if (dtRate < 0)
+      return this.warpoutStep(s, targetRate);
+    const fadeinPerTick = dtRate / (s * 1000);
+    return timer(s, (tm, dt) => {
+      this.setPlaybackRate(this.state.playbackRate -= dt * fadeinPerTick);
+      return 'more';
+    })
+  },
+  warpOutStep(s, targetRate) {
+    const dtRate = this.data.playbackRate * targetRate - this.state.playbackRate;
+    if (dtRate < 0)
+      return this.warpinStep(s, targetRate);
+    const fadeoutPerTick = dtRate / (s * 1000);
+    return timer(s, (tm, dt) => {
+      this.setPlaybackRate(this.state.playbackRate += dt * fadeoutPerTick);
+      return 'more';
+    })
+  },
+  warpIn(s, targetRate) {
+    startProcess(this.warpinStep(s, targetRate), this.ticker);
+  },
+  warpOut(s, targetRate) {
+    startProcess(this.warpoutStep(s, targetRate), this.ticker);
   }
 });
 
@@ -379,11 +424,11 @@ function fOnEnded(misound, audio) {
 function repeatSound(misound, audio) {
   if (!audio._repeat)
     return false;
-  const fFadeout = fadeoutFor(misound, audio, audio.buffer.duration, misound.data.fade);
+  const fFadeout = fadeOutFor(misound, audio, audio.buffer.duration, misound.data.fadeOut);
   if (--audio._repeat.count > 0) {
     if (misound.data.offset !== 0)
       audio.offset = misound.data.offset; // Set the starting offset for the audio.
-    if (audio._repeat.count === 1 && misound.data.fade > 0) {
+    if (audio._repeat.count === 1 && misound.data.fadeOut > 0) {
       startProcess(iterator(msWaiter(audio._repeat.interval), () => { audio.play() }, fFadeout), misound.ticker);
     } else
       startProcess(msWaiter(audio._repeat.interval, () => { audio.play() }), misound.ticker);
@@ -393,13 +438,23 @@ function repeatSound(misound, audio) {
   return false;
 }
 
-function fadeoutFor(misound, audio, duration, fade) {
-  duration = duration * 1000;
-  return iterator(msTimer(duration, (tm, dt, remain) => {
-    audio.setVolume(misound.state.volume * (1 - (duration - remain * fade) / duration));
+function fadeOutFor(misound, audio, duration, fadeout) {
+  duration = duration * 1000 * fadeout;
+  return msTimer(duration, (tm, dt, remain) => {
+    audio.setVolume(misound.state.volume * (1 - (duration - remain) / duration));
     return 'more';
-  }), () => { audio.setVolume(misound.state.volume) });
+  });
 }
+
+function fadeInFor(misound, audio, duration, fadein) {
+  duration = duration * 1000 * fadein;
+  audio.setVolume(0);
+  return msTimer(duration, (tm, dt, remain) => {
+    audio.setVolume(misound.state.volume * (duration - remain) / duration);
+    return 'more';
+  });
+}
+
 function findLongestRunningAudio(sound) {
   let iAudio = 0;
   let longTime = sound.pool.children[0].context.currentTime;

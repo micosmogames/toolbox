@@ -6,3 +6,4 @@ import './collider';
 import './gamma';
 import './gltf-blender-part';
 import './misound';
+import './mipool';

@@ -16,5 +16,16 @@
   "license": "ISC",
   "dependencies": {},
   "devDependencies": {},
-  "scripts": {}
+  "scripts": {},
+  "keywords": [
+    "aframe",
+    "sound",
+    "pool",
+    "keyboard",
+    "startup",
+    "jukebox",
+    "music",
+    "button",
+    "collider"
+  ]
 }

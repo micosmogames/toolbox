@@ -38,7 +38,7 @@ Button controller component.
 
 ### [gltf-blender-part](./md/gltf-blender-part.md)
 
-Enable or disable gamma output on the scene's renderer.
+Extract a part within a Blender gltf asset.
 
 ### [gamma](./md/gamma.md)
 
