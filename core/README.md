@@ -12,35 +12,35 @@ The *core* package contains helper objects and functions that extend the core Ja
 
 ## CONTENTS
 
-### [private](./md/private.md)
+### [private](md/private.md)
 
 Create and access a private properties extension of a public object.
 
-### [replicate](./md/replicate.md)
+### [replicate](md/replicate.md)
 
 Functions for assigning, copying and cloning Javascript objects at both a descriptor and value level.
 
-### [method](./md/method.md)
+### [method](md/method.md)
 
 Contains a decorator service to promote a function that accepts an object as the first argument to be a method of that object type.
 
-### [bind](./md/bind.md)
+### [bind](md/bind.md)
 
 Alternate bind function that returns the same bound function for the same inputs.
 
-### [compare](./md/compare.md)
+### [compare](md/compare.md)
 
 Contains value comparison services.
 
-### [string](./md/string.md)
+### [string](md/string.md)
 
 Contains a string building service.
 
-### [number](./md/number.md)
+### [number](md/number.md)
 
 Contains a number related services.
 
-### [character](./md/character.md)
+### [character](md/character.md)
 
 Contains character testing services.
 
@@ -58,6 +58,7 @@ const { copy, method, newPrivateSpace, ... } = require('@micosmo/core');
 
 ## VERSIONS
 
+* 0.1.3 - Fix path in md document structure
 * 0.1.2 - Fix repository path in package.json. Added *compare*. Fix to *bind*.
 * 0.1.1 - Rework of method (see [method](./md/method.md#HISTORY)) and context table fix to replicate
 * 0.1.0 - Initial release (DEPRECATED)

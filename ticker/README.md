@@ -29,11 +29,11 @@ import ticker from '@micosmo/ticker/aframe-ticker';
 
 ## CONTENTS
 
-### [ticker](./md/ticker.md)
+### [ticker](md/ticker.md)
 
 Generic *ticker* system.
 
-### [aframe-ticker](./md/aframe-ticker.md)
+### [aframe-ticker](md/aframe-ticker.md)
 
 Aframe *ticker* implementation
 

@@ -12,43 +12,43 @@ The *aframe* package contains Aframe helper components, systems and utilities fo
 
 ## CONTENTS
 
-### [keyboard](./md/keyboard.md)
+### [keyboard](md/keyboard.md)
 
 Keyboard event handler system. Integrates with *keymap* component.
 
-### [keymap](./md/keymap.md)
+### [keymap](md/keymap.md)
 
 Keyboard key mapping component.
 
-### [misound](./md/misound.md)
+### [misound](md/misound.md)
 
 Extended version of the Aframe *sound* component.
 
-### [mipool](./md/mipool.md)
+### [mipool](md/mipool.md)
 
 Extended verison of the Aframe *pool* component.
 
-### [jukebox](./md/jukebox.md)
+### [jukebox](md/jukebox.md)
 
 Backgound music manager component.
 
-### [button](./md/button.md)
+### [button](md/button.md)
 
 Button controller component.
 
-### [gltf-blender-part](./md/gltf-blender-part.md)
+### [gltf-blender-part](md/gltf-blender-part.md)
 
 Extract a part within a Blender gltf asset.
 
-### [gamma](./md/gamma.md)
+### [gamma](md/gamma.md)
 
 Enable or disable gamma output on the scene's renderer.
 
-### [utils](./md/utils.md)
+### [utils](md/utils.md)
 
 Aframe and threejs utility services
 
-### [initialise](./md/initialise.md)
+### [initialise](md/initialise.md)
 
 Contains imports that must be processed in the applications *index.js*.
 

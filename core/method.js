@@ -35,16 +35,15 @@ function asDeclaredMethod(f) {
 }
 
 // Checks that a method has a valid 'this'.
-// If 'o' is a function then it must be a method and we wrap the method with the checking logic.
-// Otherwise we assume that o is a 'this' and we perform and inline check. Must be a value other than
-// 'globalThis'.
+// If 'o' is a function then if not a method it will first be promoted to a method and we wrap the method with the checking logic.
+// Otherwise we assume that o is a 'this' and we perform and inline check. Must be a value other than 'globalThis'.
 function checkThis(o) {
   if (typeof o === 'function') {
-    const f = o;
-    if (!f.isaDeclaredMethod)
-      throw new Error(`micosmo:method:checkThis: Function is not a method`);
+    var f = o;
     if (f.method)
       return f; // Already wrapped
+    if (!f.isaDeclaredMethod)
+      f = asDeclaredMethod(f);
     const fMeth = declareMethod(function (...args) {
       if (isGlobalThis(this))
         throw new Error('micosmo:method:checkThis: Attempting to call a method as a function. Require o.method(...), method.bind(o)(...) or method.call(o, ...)');

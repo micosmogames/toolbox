@@ -15,7 +15,9 @@
   "author": "Micosmo",
   "license": "ISC",
   "dependencies": {},
-  "devDependencies": {},
+  "devDependencies": {
+    "@micosmo/core": "latest"
+  },
   "scripts": {},
   "keywords": [
     "aframe",
