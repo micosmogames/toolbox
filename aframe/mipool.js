@@ -87,13 +87,14 @@ aframe.registerComponent('mipool', {
   requestEntity: function () {
     var el;
     if (this.availableEls.length === 0) {
-      if (this.size < this.dats.maxSize)
+      if (this.size < this.data.maxSize)
         this.createEntity();
       else if (this.data.poolPolicy === 'dynamic') {
-        if (this.state.size >= this.state.maxSize * 2)
-          throw new Error(`micosmo:component:mipool:requestEntity: Pool(${this.attrName}) is empty. Possible runaway dynamic expansion`);
-        else
-          console.warn(`micosmo:component:mipool:requestEntity: Pool(${this.attrName}) is empty. Dynamically expanding`);
+        if (this.state.size >= this.state.maxSize * 2) {
+          console.warn(`micosmo:component:mipool:requestEntity: Pool(${this.attrName}) is empty. Possible runaway dynamic expansion`);
+          return;
+        }
+        console.warn(`micosmo:component:mipool:requestEntity: Pool(${this.attrName}) is empty. Dynamically expanding`);
         this.createEntity();
       } else if (this.data.poolPolicy === 'ignore')
         return;

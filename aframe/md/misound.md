@@ -22,14 +22,14 @@ Additional schema properties only.
 
 Property | Type | Default | Description
 -------- | ---- | ------- | -----------
-fadeIn | number | 0 | Specifies that the sound has a fade in volume effect and that fade in will occur over a *fadeIn* proportion of the sounds total duration.
-fadeOut | number | 0 | Specifies that the sound has a fade out volume effect and that fade out will occur over a *fadeOut* proportion of the sounds total duration.
+fadeIn | array | [] | Sound has a fade in volume effect. Requires an array containing the *offset* in seconds where the effect starts, *duration* in seconds of the effect, *startVolume* as a proportion of the current assigned volume, and the *targetVolume* as a proportion of the current assigned volume. *offset* must be provided, but the other array elements are optional. *duration* defaults to 0 meaning effect is applied for the remainder of the sound, *startVolume* defaults to 0 and *targetVolume* defaults to 1.
+fadeOut | array | [] | As for *fadeIn* except that a fade out volume effect is applied. The *startVolume* array element defaults to 1 and *targetVolume* defaults to 0.
 maxPoolSize | number | 1 | Sets the maximum number of *THREE.Audio* objects that can be attached to this *misound*. If *poolSize* property is less then *maxPoolSize* then *misound* will dynamically increase the pool.
 offset | number | 0 | Sets the starting position for playback.
 pausePolicy | string | 'pause' | Specifies the behaviour of the *misound* component when Aframe calls the *pause* method. The Aframe *sound* component stops the sound and *misound* pauses the sound as the default. The *pausePolicy* can be set to *stop* to be consistent with *sound*. Must be one of *pause* or *stop*.
 playbackRate | number | 1 | Specifies the playback rate of the sound as a proportion of the normal rate, where *1* reperesents the sounds normal playback rate.
 poolPolicy | string | 'warn' | Specifies the behaviour of the *playSound* method when all the *audio* objects within the pool (that cannot be increased any further) are playing. The default behaviour is to issue a warning to the log and ignore the request. The policy provides alternative options to either throw an error, discard the longest playing *audio* object in order to satisfy the new request or ignore the play request without a warning. Must be one of *warn*, *error*, *discard* or *ignore*.
-repeat | custom | '' | Specifies the number of times the *audio* will be repeated for each play request and optionally the interval between repeats. The format of the custom string is *'count[,interval]'* where *count* is a the number of repeats and the optional *interval* is the wait interval between repeats expressed in milliseconds.
+repeat | array | [] | Specifies the number of times the *audio* will be repeated for each play request and optionally the interval between repeats. The array contains the *count*  number of repeats and an optional *interval* is the wait interval between repeats expressed in milliseconds. *count* is required and *interval* defaults to 0.
 _state | internal | None | The *misound* component utilizes a two level data architecture where some schema properties are considered as defaults (in this case *volume* & *playbackRate*). A separate *state* object contains the current values which are modified via method calls to *misound* instances. The *setAttribute* method is only called to change the default value which is applied when an *undefined* value is set. This internal property allows the contents of the *state* object to be *stringified* for display in the browser's inspector.
 
 ##### METHODS
@@ -58,6 +58,7 @@ None
 
 1. The *misound* component is integrated with the *mipool* component which will issue *pool-add*, *pool-remove* and *pool-return* events, listening for *pool-return* events and on firing will stop this *misound* component instance. This provides an alternative method for handling the state of pooled components where the paused state within a pool is handled differently to the paused state within the application.
 2. The *sound-ended* event is now emitted whenever the sound goes from a playing/paused state to a stopped state. The event *detail* includes a *reason* property that will contain a string of either *end* or *stop*. *stop* indicates that the sound has been manually stopped by a call to the *stopSound* method.
+3. The *fadeIn* effect takes precedence over *fadeOut* if both are specified. If the *misound* configuration also includes a *repeat* then the *fadeIn* effect will apply to the first occurence and *fadeOut* to the last.
 
 ## LICENSE
 

@@ -67,7 +67,7 @@ aframe.registerComponent("jukebox", {
       }
       // Reset the volume of the sound if the volume is set back to 1.
       if (oldData.volume !== this.data.volume)
-        this.currentSound.setVolume(this.data.volume === 1 ? undefined : this.data.volume);
+        this.currentSound.setVolume(this.data.volume === 1 ? undefined : this.data.volume * this.currentSound.data.volume);
     }
     if (oldData.tracks && !equivalentArrays(oldData.tracks, this.data.tracks)) {
       throw new Error(`micosmo:component:jukebox:update: Tracks cannot be modified`);
@@ -113,7 +113,7 @@ aframe.registerComponent("jukebox", {
   startCurrentTrack() {
     this.currentSound = this.sounds[this.data.currentTrack];
     if (this.data.volume !== 1)
-      this.currentSound.setVolume(this.data.volume);
+      this.currentSound.setVolume(this.data.volume * this.currentSound.data.volume); // Set relative to the sounds default volume
     // createProcess(waiter(10, () => { this.startNextTrack() })).start();
     this.currentSound.playSound();
     this.currentSound.el.addEventListener('sound-ended', bind(soundEndedListener, this));

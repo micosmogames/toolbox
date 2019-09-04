@@ -7,9 +7,11 @@
 /* global THREE */
 import aframe from "aframe";
 import { bindEvent } from 'aframe-event-decorators';
-import { copyValues } from '@micosmo/core';
+import { copyValues, equivalent } from '@micosmo/core';
 import { onLoadedDo } from './startup';
 import { startProcess, msWaiter, iterator, msTimer, timer, tryLocateTicker } from '@micosmo/ticker/aframe-ticker';
+
+const ModuleName = 'micosmo:component:misound:';
 
 aframe.registerComponent('misound', {
   schema: {
@@ -25,22 +27,10 @@ aframe.registerComponent('misound', {
     poolSize: { default: 1 },
     positional: { default: true },
     refDistance: { default: 1 },
-    fadeIn: { default: 0 }, // Proportion of sound duration to apply fadein
-    fadeOut: { default: 0 }, // Proportion of sound duration to apply fadeout
+    fadeIn: { default: [] }, // Duration (or 0 for remainder, secs), targetVolume, startVolume (allows skip of low/high volume range)
+    fadeOut: { default: [] }, // Offset (- from end, secs), targetVolume, startVolume (allows skip of low/high volume range)
     playbackRate: { default: 1 }, // Playback rate expressed as a proportion of the full rate.
-    repeat: {
-      default: {},
-      parse: function(v) {
-        return typeof v === "object" ? v : (() => {
-          const [count, interval] = v.split(',').map(s => Number.parseFloat(s.trim(' ')));
-          return {
-            count: count || 0,
-            interval: interval || 0, // Wait interval im milliseconds
-          };
-        })();
-      },
-      stringify: v => `{ count:${v.count}, interval:${v.interval} }`
-    },
+    repeat: { default: [] }, // Requires a count followed by optional interval.
     rolloffFactor: { default: 1 },
     src: { type: 'audio' },
     volume: { default: 1 },
@@ -48,7 +38,11 @@ aframe.registerComponent('misound', {
     // included here to allow the data to be displayed in the browser inspector.
     _state: {
       default: {},
-      parse: o => o,
+      parse: o => {
+        if (typeof o !== 'object')
+          throw new Error(`${ModuleName}schema: The property '_state' cannot be configured`);
+        return o;
+      },
       stringify: o => `{volume:${o.volume}, playbackRate:${o.playbackRate}}`
     }
   },
@@ -118,6 +112,43 @@ aframe.registerComponent('misound', {
         misound.el.emit('sound-loaded', misound.evtDetail, false);
       });
     }
+
+    const checkNumber = (n, def) => typeof n !== 'number' || isNaN(n) || n < 0 ? def : n;
+    const validNumber = n => typeof n === 'number' && !isNaN(n)
+
+    if (!oldData || !equivalent(oldData.repeat, data.repeat)) {
+      const count = Number.parseInt(data.repeat[0]);
+      const interval = Number.parseInt(data.repeat[1]);
+      if (!validNumber(count) || count <= 0)
+        this.state.repeat = undefined
+      else {
+        this.state.repeat = {
+          count,
+          interval: checkNumber(interval, 0)
+        }
+      }
+    }
+
+    function parseFade(aFade, defStartVol, defTargetVol) {
+      const offset = Number.parseInt(aFade[0]);
+      const duration = Number.parseInt(aFade[1]);
+      const sVol = Number.parseFloat(aFade[2]);
+      const tVol = Number.parseFloat(aFade[3]);
+      if (!validNumber(offset))
+        return undefined;
+      return {
+        offset,
+        duration: checkNumber(duration, 0),
+        startVolume: checkNumber(sVol, defStartVol),
+        targetVolume: checkNumber(tVol, defTargetVol)
+      }
+    }
+
+    if (!oldData || !equivalent(oldData.fadeIn, data.fadeIn))
+      this.state.fadeIn = parseFade(data.fadeIn, 0, 1);
+
+    if (!oldData || !equivalent(oldData.fadeOut, data.fadeOut))
+      this.state.fadeOut = parseFade(data.fadeOut, 1, 0);
   },
 
   pause() {
@@ -153,7 +184,7 @@ aframe.registerComponent('misound', {
       }
     } catch (e) {
       // disconnect() will throw if it was never connected initially.
-      console.warn(`micosmo:component:misound:remove: Audio source not properly disconnected. Sound(${id(this)}`);
+      console.warn(`${ModuleName}remove: Audio source not properly disconnected. Sound(${id(this)}`);
     }
   },
 
@@ -272,7 +303,7 @@ aframe.registerComponent('misound', {
           this.pool.add(audio);
           audio.onEnded = fOnEnded(this, audio);
         } else if (this.data.poolPolicy === 'error') {
-          throw new Error(`micosmo:component:misound:playSound: Maximum sound instances exceeded. Sound(${id(this)})`);
+          throw new Error(`${ModuleName}playSound: Maximum sound instances exceeded. Sound(${id(this)})`);
         } else if (this.data.poolPolicy === 'discard') {
           const iAudio = findLongestRunningAudio(this);
           const audio = this.pool.children[iAudio];
@@ -285,29 +316,29 @@ aframe.registerComponent('misound', {
 
     var found, i, sound;
     if (!this.loaded) {
-      console.warn(`micosmo:component:misound:playSound: Sound not loaded yet. It will be played once it finished loading. Sound(${id(this)})`);
+      console.warn(`${ModuleName}playSound: Sound not loaded yet. It will be played once it finished loading. Sound(${id(this)})`);
       this.mustPlay = true;
       return;
     }
 
     found = false;
     this.isPlaying = true;
-    const data = this.data;
+    const data = this.data; const state = this.state;
     for (i = 0; i < this.pool.children.length; i++) {
       sound = this.pool.children[i];
       if (!sound.isPlaying && sound.buffer && !found) {
         if (processSound) { processSound(sound); }
         if (data.offset !== 0)
           sound.offset = data.offset; // Set the starting offset for the audio.
-        sound.setVolume(this.state.volume);
-        sound.setPlaybackRate(this.state.playbackRate);
-        if (data.fadeIn)
-          startProcess(fadeInFor(this, sound, sound.buffer.duration, data.fadeIn), this.ticker);
+        sound.setVolume(state.volume);
+        sound.setPlaybackRate(state.playbackRate);
+        if (state.fadeIn)
+          startProcess(fadeFor(this, sound, state.fadeIn), this.ticker);
         sound.play();
-        if (data.repeat.count > 0)
-          sound._repeat = copyValues(data.repeat);
-        else if (data.fadeOut && !data.fadeIn)
-          startProcess(fadeOutFor(this, sound, sound.buffer.duration, data.fadeOut), this.ticker);
+        if (state.repeat)
+          sound._repeat = copyValues(state.repeat);
+        else if (state.fadeOut && !state.fadeIn)
+          startProcess(fadeFor(this, sound, state.fadeOut), this.ticker);
         sound.isPaused = false;
         found = true;
         continue;
@@ -315,7 +346,7 @@ aframe.registerComponent('misound', {
     }
 
     if (!found) {
-      console.warn(`micosmo:component:misound:playSound: All sound instances are playing. Sound(${id(this)})`);
+      console.warn(`${ModuleName}playSound: All sound instances are playing. Sound(${id(this)})`);
       return;
     }
     this.mustPlay = false;
@@ -424,12 +455,11 @@ function fOnEnded(misound, audio) {
 function repeatSound(misound, audio) {
   if (!audio._repeat)
     return false;
-  const fFadeout = fadeOutFor(misound, audio, audio.buffer.duration, misound.data.fadeOut);
   if (--audio._repeat.count > 0) {
     if (misound.data.offset !== 0)
       audio.offset = misound.data.offset; // Set the starting offset for the audio.
-    if (audio._repeat.count === 1 && misound.data.fadeOut > 0) {
-      startProcess(iterator(msWaiter(audio._repeat.interval), () => { audio.play() }, fFadeout), misound.ticker);
+    if (audio._repeat.count === 1 && misound.state.fadeOut) {
+      startProcess(iterator(msWaiter(audio._repeat.interval), () => { audio.play() }, fadeFor(misound, audio, misound.state.fadeOut)), misound.ticker);
     } else
       startProcess(msWaiter(audio._repeat.interval, () => { audio.play() }), misound.ticker);
     return true;
@@ -438,22 +468,62 @@ function repeatSound(misound, audio) {
   return false;
 }
 
-function fadeOutFor(misound, audio, duration, fadeout) {
-  duration = duration * 1000 * fadeout;
-  return msTimer(duration, (tm, dt, remain) => {
-    audio.setVolume(misound.state.volume * (1 - (duration - remain) / duration));
+function fadeFor(misound, audio, fade) {
+  const audioDuration = (audio.buffer.duration - (audio.isPlaying ? audio.context.currentTime : 0)) * 1000;
+  var offset = fade.offset * 1000;
+  offset = Math.max(offset < 0 ? audioDuration + offset : offset, 0);
+  var sVol = fade.startVolume * misound.state.volume;
+  const tVol = fade.targetVolume * misound.state.volume;
+  const defRemain = audioDuration - offset;
+  const msVol = Math.abs(tVol - sVol) / Math.min((fade.duration * 1000 | defRemain), defRemain);
+  const fFinished = sVol <= tVol ? (dt, adj) => (sVol += adj) > tVol : (dt, adj) => (sVol -= adj) < tVol;
+
+  if (offset === 0)
+    audio.setVolume(sVol); // If we are starting at the currentTime of the audio then set start volume now to prevent clipping.
+
+  return (tm, dt) => {
+    if (offset > 0) {
+      if ((offset -= dt) <= 0)
+        audio.setVolume(sVol); // Found our required position so set the volume to the start volume
+      return 'more';
+    }
+    if (fFinished(dt, msVol * dt)) {
+      audio.setVolume(tVol); // Make sure the last operation is for the final target volume.
+      return; // Finished
+    }
+    audio.setVolume(sVol);
+    return 'more';
+  };
+}
+
+/*
+function fadeOutFor(misound, audio, fadeOut) {
+  var audioDuration = audio.buffer.duration;
+  const offset = (fadeOut.offset < 0 ? audioDuration + fadeOut.offset : fadeOut.offset) * 1000;
+  const startRemain = (audioDuration *= 1000) - offset;
+  const sVol = fadeOut.startVolume | misound.state.volume;
+  const vDiff = sVol - fadeOut.targetVolume * misound.state.volume;
+
+  return msTimer(audioDuration, (tm, dt, remain) => {
+    if (remain > startRemain)
+      return 'more';
+    audio.setVolume(sVol - vDiff * (startRemain - remain) / startRemain);
     return 'more';
   });
 }
 
-function fadeInFor(misound, audio, duration, fadein) {
-  duration = duration * 1000 * fadein;
-  audio.setVolume(0);
+function fadeInFor(misound, audio, fadeIn) {
+  const duration = (fadeIn.duration | audio.buffer.duration) * 1000;
+  const sVol = fadeIn.startVolume;
+  const tVol = fadeIn.targetVolume * misound.state.volume | misound.state.volume;
+  const vDiff = tVol - sVol;
+  audio.setVolume(sVol);
   return msTimer(duration, (tm, dt, remain) => {
-    audio.setVolume(misound.state.volume * (duration - remain) / duration);
+    audio.setVolume(sVol + vDiff * (duration - remain) / duration);
     return 'more';
   });
 }
+*/
 
 function findLongestRunningAudio(sound) {
   let iAudio = 0;
