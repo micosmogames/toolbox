@@ -19,6 +19,7 @@
         "quotes": "off",
         "no-extra-semi": "off",
         "no-undef-init": "off",
+        "no-fallthrough": "off",
         "no-unused-vars": "warn",
         "no-trailing-spaces": "warn",
         "no-useless-escape": "warn",

@@ -4,8 +4,7 @@
 *  The basic ticker process element is based on a generator function.
 */
 
-var { declareMethod, method } = require('../core/method');
-// var { declareMethod, method } = require('@micosmo/core/method');
+var { declareMethod, method } = require('@micosmo/core/method');
 
 const ProtGenFn = Object.getPrototypeOf(function * () { });
 const TickerPrototype = _TickerPrototype();

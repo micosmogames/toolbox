@@ -1,0 +1,29 @@
+{
+  "name": "@micosmo/threadlet",
+  "version": "0.1.0",
+  "description": "Pseudo yieldable threads for Javascript",
+  "main": "index.js",
+  "homepage": "https://github.com/micosmogames/toolbox/blob/HEAD/threadlet/README.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/micosmogames/toolbox.git",
+    "directory": "threadlet"
+  },
+  "bugs": {
+    "email": "micosmogames@gmail.com"
+  },
+  "author": "Micosmo",
+  "license": "ISC",
+  "dependencies": {
+    "@micosmo/core": "latest"
+  },
+  "devDependencies": {},
+  "scripts": {},
+  "keywords": [
+    "thread",
+    "threads",
+    "async",
+    "asynchronous",
+    "promise"
+  ]
+}
