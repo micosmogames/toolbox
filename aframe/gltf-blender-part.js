@@ -63,8 +63,12 @@ aframe.registerComponent("gltf-blender-part", {
         },
         undefined,
         err => {
-          console.error(`micosmo:compoanent:gltf-blender-part:THREE.GLTFLoader: Failed. Src(${this.data.src}) Part(${this.data.part}) Error(${err})`);
-          console.warn(err);
+          var msg = String(err);
+          if (err instanceof Error)
+            msg = err.message;
+          else if (err instanceof Event)
+            msg = (err.srcElement && err.srcElement.src) || msg;
+          console.error(`micosmo:component:gltf-blender-part:THREE.GLTFLoader: Failed. Src(${this.data.src}) Part(${this.data.part}) Error(${msg})`);
         }
       );
       return;
@@ -100,13 +104,12 @@ aframe.registerComponent("gltf-blender-part", {
         },
         undefined,
         err => {
-          var msg; // Hello world
+          var msg = String(err);
           if (err instanceof Error)
-            msg = err.message || (err.srcElement && err.srcElement.src) || String(err);
-          else
-            msg = String(err);
+            msg = err.message;
+          else if (err instanceof Event)
+            msg = (err.srcElement && err.srcElement.src) || msg;
           console.error(`micosmo:component:gltf-blender-part:THREE.GLTFLoader: Failed. Src(${this.data.src}) Part(${this.data.part}) Error(${msg})`);
-          console.warn(`micosmo:component:gltf-blender-part:THREE.GLTFLoader: Error`, err);
         }
       );
     });

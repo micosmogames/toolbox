@@ -1,6 +1,6 @@
 {
   "name": "@micosmo/aframe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Aframe components, systems and utilities",
   "main": "index.js",
   "homepage": "https://github.com/micosmogames/toolbox/blob/HEAD/aframe/README.md",
