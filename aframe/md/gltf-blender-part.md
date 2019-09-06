@@ -35,6 +35,11 @@ None
 
 None
 
+## HISTORY
+
+### 0.1.1
+* Fix to error details message to more descriptive.
+
 ## LICENSE
 
 ISC - Internet Systems Consortium

@@ -60,6 +60,7 @@ Aframe component and system modules can be imported as a complete group by impor
 
 ## VERSIONS
 
+0.1.1 - Fixes to jukebox & gltf-blender-part
 0.1.0 - Based on Aframe 0.9.2
 
 ## AUTHORS

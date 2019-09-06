@@ -1,5 +1,4 @@
 import aframe from "aframe";
-import { bindEvent } from "aframe-event-decorators";
 import { createProcess, waiter } from "@micosmo/ticker/aframe-ticker";
 import { onLoadedDo } from "./startup";
 import { copyValues, equivalentArrays, bind, declareMethod } from "@micosmo/core";
@@ -19,8 +18,6 @@ aframe.registerComponent("jukebox", {
     volume: { type: "number", default: 1 }
   },
   init() {
-    this.gameStateEl = document.querySelector('[game-state]');
-
     this.tracks = [];
     this.sounds = [];
     this.currentSound = undefined;
@@ -30,9 +27,9 @@ aframe.registerComponent("jukebox", {
     this.warpProcess = createProcess({
       name: 'JukeboxWarp',
       onTick: function * (state) {
-        yield self.currentSound.warpInStep(1, 0.50);
-        yield waiter(self.warpDuration - 2);
-        yield self.currentSound.warpOutStep(1, 1);
+        yield self.currentSound.warpInStep(self.warpDetail.tmWarpIn, 0.50);
+        yield waiter(self.warpDetail.duration - self.warpDetail.tmWarpIn - self.warpDetail.tmWarpOut);
+        yield self.currentSound.warpOutStep(self.warpDetail.tmWarpOut, 1);
       }
     });
     onLoadedDo(() => this.loadTracks());
@@ -46,8 +43,7 @@ aframe.registerComponent("jukebox", {
           if (this.soundLoaded) {
             this.startCurrentTrack();
             console.info('micosmo:component:jukebox:update: Jukebox switched on');
-          } else
-            this.oldData.state = this.data.state = 'off';
+          }
         }
       } else if (this.data.state === 'pause')
         if (oldData.state === 'on')
@@ -99,11 +95,6 @@ aframe.registerComponent("jukebox", {
     }
   },
   resumeCurrentTrack() {
-    const state = this.gameStateEl.getAttribute('game-state').state;
-    if (state === 'Loading' || state === 'MainMenu') {
-      this.oldData.state = this.data.state = 'pause'; // Stay paused.
-      return;
-    }
     if (this.isPaused) {
       this.currentSound.resumeSound();
       this.warpProcess.resume();
@@ -121,15 +112,15 @@ aframe.registerComponent("jukebox", {
       this.currentSound.pauseSound();
   },
 
-  startTimeWarp: bindEvent({ target: '[game-state]' }, function (evt) {
-    if (this.currentSound) {
-      this.warpDuration = evt.detail.duration;
-      this.warpProcess.start();
-    }
-  }),
-  endTimeWarp: bindEvent({ target: '[game-state]' }, function () {
+  startTimeWarp(duration, tmWarpIn, tmWarpOut = tmWarpIn) {
+    if (!this.currentSound)
+      return;
+    this.warpDetail = { duration, tmWarpIn, tmWarpOut };
+    this.warpProcess.start();
+  },
+  endTimeWarp() {
     this.warpProcess.stop();
-  }),
+  },
 
   selectNextTrack() {
     const totalTracks = this.tracks.length;
@@ -177,9 +168,10 @@ aframe.registerComponent("jukebox", {
 
 function startJukebox(jb) {
   jb.soundLoaded = true;
-  const state = jb.gameStateEl.getAttribute('game-state').state;
-  if (state !== 'Loading' && state !== 'MainMenu')
-    jb.el.setAttribute("jukebox", { state: "on" });
+  if (jb.data.state === 'on') {
+    jb.startCurrentTrack();
+    console.info('micosmo:component:jukebox:startJukebox: Jukebox switched on');
+  }
 }
 
 var soundEndedListener = declareMethod(function () {

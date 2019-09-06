@@ -1,17 +1,14 @@
 /*
 *  lazypromise.js
-*  An object that looks like a promise but defers instantiation until the lazy promise
-*  is manually reolved or rejected. Allows interfaces to return promises that don't have
-*  an implementation for determining resolution, but are dependent on some event.
+*
+*  Implements a wrapper around a Promise to allow the Promise to be settled by the LazyPromise instead of the Promise executor function.
+*  The Promise executor either yields up the resolve and reject functions to the LazyPromise if the LazyPromise is yet to be settled, or
+*  applies the settlement that is captured within the LazyPromise should this have already occurred.
+*
+*  The creator of the LazyPromise typically holds the LazyPromise and passes the underlying Promise to interested parties.
+*
+*  Also implements the then, catch and finally methods to pass on to the underlying Promise.
 */
-const { declareMethod, method } = require('@micosmo/core');
-
-var Catch = declareMethod(_Catch);
-var Then = declareMethod(_Then);
-var Final = declareMethod(_Final);
-var Resolve = declareMethod(_Resolve);
-var Reject = declareMethod(_Reject);
-
 const LazyPromisePrototype = _LazyPromisePrototype();
 
 module.exports = {
@@ -20,68 +17,53 @@ module.exports = {
 
 // LazyPromise
 // Arguments: None
-// Has resolve and reject methods to defer the creation of the promise structure.
+// Has resolve and reject methods to settle the Promise outide of the Promise's executor function.
 function LazyPromise() {
-  return Object.create(LazyPromisePrototype, {
-    handlers: { value: [], enumerable: true },
+  const lazyPromise = Object.create(LazyPromisePrototype);
+  lazyPromise.promise = new Promise((resolve, reject) => {
+    if (lazyPromise.isSettled) {
+      if (lazyPromise.isResolved)
+        resolve(lazyPromise.value)
+      else
+        reject(lazyPromise.value);
+    } else {
+      lazyPromise._resolve = resolve;
+      lazyPromise._reject = reject;
+    }
   });
+  lazyPromise.isSettled = false;
+  return lazyPromise;
 };
 
 function _LazyPromisePrototype() {
   return Object.create(Object, {
     isaLazyPromise: { value: true, enumerable: true },
-    catch: { value: method(Catch), enumerable: true },
-    then: { value: method(Then), enumerable: true },
-    finally: { value: method(Final), enumerable: true },
-    resolve: { value: method(Resolve), enumerable: true },
-    reject: { value: method(Reject), enumerable: true },
+    resolve: {
+      value: function (v) {
+        if (this._resolve)
+          this._resolve(v);
+        else {
+          this.isSettled = true;
+          this.isResolved = true;
+          this.value = v
+        }
+      },
+      enumerable: true
+    },
+    reject: {
+      value: function (v) {
+        if (this._reject)
+          this._reject(v);
+        else {
+          this.isSettled = true;
+          this.isResolved = false;
+          this.value = v
+        }
+      },
+      enumerable: true
+    },
+    then: { value: function (...args) { return this.promise.then(...args) }, enumerable: true },
+    catch: { value: function (...args) { return this.promise.catch(...args) }, enumerable: true },
+    finally: { value: function (...args) { return this.promise.finally(...args) }, enumerable: true },
   });
-}
-
-function _Catch(reject) {
-  const chainedPromise = LazyPromise();
-  this.handlers.push([chainedPromise, undefined, reject, undefined]);
-  return chainedPromise;
-};
-
-function _Then(resolve, reject) {
-  const chainedPromise = LazyPromise();
-  this.handlers.push([chainedPromise, resolve, reject, undefined]);
-  return chainedPromise;
-};
-
-function _Final(final) {
-  const chainedPromise = LazyPromise();
-  this.handlers.push([chainedPromise, undefined, undefined, final]);
-  return chainedPromise;
-};
-
-function _Resolve(v) {
-  // Navigate through the then and finally clauses and build a resolved
-  // Promise structure.
-  buildPromises(Promise.resolve(v), this);
-};
-
-function _Reject(v) {
-  // Navigate through the then and finally clauses and build a rejected
-  // Promise structure.
-  buildPromises(Promise.reject(v), this);
-};
-
-function buildPromises(promise, lazyPromise) {
-  lazyPromise.handlers.forEach(spec => {
-    navigateChain(promise, spec);
-  });
-}
-
-function navigateChain(promise, spec, fNext) {
-  const [chainedPromise, resolve, reject, final] = spec;
-  var nextPromise;
-  if (resolve)
-    nextPromise = promise.then(resolve, reject);
-  else if (reject)
-    nextPromise = promise.catch(reject);
-  else
-    nextPromise = promise.finally(final);
-  buildPromises(nextPromise, chainedPromise);
 }

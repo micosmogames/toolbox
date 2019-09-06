@@ -34,6 +34,13 @@ None
 
 None
 
+## HISTORY
+
+### 0.1.1
+* Removed some application specific code.
+* Jukebox will now start once first track is loaded and jukebox is switched on.
+* Warping feature changed from events to api.
+
 ## LICENSE
 
 ISC - Internet Systems Consortium

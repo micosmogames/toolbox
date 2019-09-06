@@ -15,7 +15,7 @@
   "author": "Micosmo",
   "license": "ISC",
   "dependencies": {
-    "@micosmo/core": "latest"
+    "@micosmo/core": "^0.1.3"
   },
   "devDependencies": {},
   "scripts": {},

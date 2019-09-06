@@ -1,6 +1,25 @@
 /*
 *  threadlet.js
-*  Non-blocking pseudo thread model for Javascript based on generator functions.
+*  Non-blocking pseudo thread model for Javascript based on promises & generator functions.
+*
+*  The Threadlet worker manages a stack of generators (instances not functions). Yield statements
+*  allows the Threadlet to yield control allow other scheduled threadlets, promises and async functions to
+*  be executed. Threadlets can be assigned a timeslice in milliseconds that defines how long the
+*  Threadlet can cycle without giving up control of the processor. This provides a rudimentary
+*  mechanism for prioritizing one threadlet over another.
+*
+*  If a generator yields another generator, then the current generator is suspended and stacked
+*  and the new generator takes control, akin to a function call. If a generator returns a
+*  generator then this acts as chain or exec like operation with the new generator replacing
+*  the old.
+*
+*  Generators can also yield and return promises. In this case the threadlet enters a wait state
+*  on the promise pending the settlement of the promise.
+*
+*  Threadlets can be called or exec'ed with normal functions which will be wrapped in a generator. In
+*  this case there is no yield capability.
+*
+*  The yield* statement can also be employed but you have to pass a generator.
 */
 
 const core = require('@micosmo/core');
@@ -34,7 +53,7 @@ function Threadlet(...args) {
   });
   return fPrivate.setObject(threadlet, {
     threadlet,
-    retPromise: undefined,
+    lazyPromise: undefined,
     nextParm: undefined,
     state: 'ready',
     stack: [],
@@ -63,22 +82,22 @@ function _ThreadletPrototype() {
     isaThreadlet: { get() { return true }, enumerable: true },
     exec: {
       value(f, ...args) {
-        if (typeof f !== 'function')
-          throw new Error(`micosmo:Threadlet: Require a function to exec.`);
         const Private = fPrivate(this);
-        return Private.state === 'ready' ? runInstance(Private, f, args) : undefined;
+        if (Private.state !== 'ready')
+          return;
+        Private.lazyPromise = LazyPromise();
+        runThreadlet(Private, f, args);
+        return Private.lazyPromise.catch(this.reject.bind(this));
       },
       enumerable: true
     },
     call: {
       value(f, ...args) {
-        if (typeof f !== 'function')
-          throw new Error(`micosmo:Threadlet: Require a function to call.`);
         const Private = fPrivate(this);
         if (Private.state !== 'ready')
-          return undefined;
-        runInstance(Private, f, args);
-        return (Private.retPromise = LazyPromise());
+          return;
+        runThreadlet(Private, f, args);
+        return (Private.lazyPromise = LazyPromise()).promise;
       },
       enumerable: true
     },
@@ -116,6 +135,22 @@ function _ThreadletPrototype() {
       },
       enumerable: true
     },
+    reject: {
+      value(v) {
+        if (v instanceof Error) {
+          console.warn(`micosmo:threadlet:reject: ${this.name} Error(${v.message}). Returning 'undefined'`);
+          console.warn(v.stack);
+          v = undefined;
+        } else if (v instanceof Promise)
+          console.warn(`micosmo:threadlet:reject: ${this.name} Rejected value is a Promise(${v}). Returning the Promise`);
+        else {
+          console.warn(`micosmo:threadlet:reject: ${this.name} Rejected(${v}). Returning 'undefined'`);
+          v = undefined;
+        }
+        return Promise.resolve(v);
+      },
+      enumerable: true
+    },
     isReady: { get() { return fPrivate(this).state === 'ready' }, enumerable: true },
     isRunning: { get() { return fPrivate(this).state === 'running' }, enumerable: true },
     isPaused: { get() { return fPrivate(this).state === 'paused' }, enumerable: true },
@@ -129,8 +164,8 @@ function _ThreadletPrototype() {
   });
 }
 
-function runInstance(Private, f, args) {
-  Private.step = getGeneratorFunction(f)(...args);
+function runThreadlet(Private, f, args) {
+  Private.step = makeThreadableInstance(f, args);
   Private.state = Private.threadlet.endState = 'running';
   runWorker(Private);
   return Private.threadlet;
@@ -140,6 +175,7 @@ function runWorker(Private) {
   new Promise(worker.bind(Private)).then(yieldThreadlet.bind(Private), threadletFailed.bind(Private));
 }
 
+// Note: The worker is bound to the private space of the Threadlet.
 var worker = declareMethod(function (resolve, reject) {
   if (this.state !== 'running') {
     // Let the yielder deal with this.
@@ -163,8 +199,8 @@ var worker = declareMethod(function (resolve, reject) {
     value = resp.value;
     if (resp.done) {
     // From return statement
-      if (isaGenerator(value)) {
-        this.step = value;
+      if (isaThreadable(value)) {
+        this.step = getThreadableInstance(value);
         value = undefined;
       } else if (this.stack.length > 0) {
         this.step = this.stack.pop();
@@ -172,11 +208,11 @@ var worker = declareMethod(function (resolve, reject) {
           continue;
       } else
         this.state = 'ending';
-    } else if (isaGenerator(value)) {
+    } else if (isaThreadable(value)) {
     // From yield statement
     // Push current generator and replace with response function
       this.stack.push(this.step);
-      this.step = value;
+      this.step = getThreadableInstance(value);
       value = undefined;
       if (dt < timeslice)
         continue;
@@ -189,10 +225,11 @@ var worker = declareMethod(function (resolve, reject) {
   }
 })
 
+// Note: The yielder is bound to the private space of the Threadlet.
 var yieldThreadlet = declareMethod(function (value) {
   const threadlet = this.threadlet;
   if (typeof value === 'object' && (value instanceof Promise || value.isaLazyPromise)) {
-    waitOnPromise.call(this, value);
+    value.then(v => yieldThreadlet.call(this, v), v => threadletFailed.call(this, v));
     return;
   }
   const state = this.state;
@@ -210,33 +247,49 @@ var yieldThreadlet = declareMethod(function (value) {
   threadlet.endValue = isStopping ? undefined : value;
   this.state = 'ready';
   this.stack = [];
-  if (this.retPromise)
-    this.retPromise.resolve(value);
+  this.lazyPromise.resolve(value);
 });
 
-var waitOnPromise = declareMethod(function (promise) {
-  promise.then(v => yieldThreadlet.call(this, v), v => threadletFailed.call(this, v));
-});
-
+// Note: The rejector is bound to the private space of the Threadlet.
 var threadletFailed = declareMethod(function (value) {
   const threadlet = this.threadlet;
   this.state = 'ready';
   this.stack = [];
   threadlet.endState = 'failed';
   threadlet.endValue = value;
-  if (this.retPromise)
-    this.retPromise.reject(value);
+  this.lazyPromise.reject(value);
 });
+
+// Threadable support services
+
+function makeThreadableInstance(f, args) {
+  if (isaThreadable(f))
+    return getThreadableInstance(f, args);
+  if (isaGeneratorFunction(f))
+    return f(...args);
+  if (typeof f === 'function')
+    return makeGeneratorFunction(f)(...args);
+  if (isaGenerator(f))
+    return f
+  throw new Error(`micosmo:threadlet:makeThreadableInstance: Require a function or generator.`);
+}
+
+function getThreadableInstance(f, args) {
+  // If we have a GeneratorFunction (fGenerator) then we instaniate the generator,
+  // otherwise we already have a generator and can ignore the arguments.
+  return f.fGenerator ? (args ? f.fGenerator(...args) : f.fGenerator()) : f;
+}
+
+function isaThreadable(f) {
+  const ty = typeof f;
+  return (ty === 'function' || ty === 'object') && f.isaThreadable;
+}
 
 // Generator function support services
 
-function getGeneratorFunction(f) {
-  return isaGeneratorFunction(f) ? f : makeGeneratorFunction(f);
-}
-
 function makeGeneratorFunction(f) {
-  return function * (scope) {
-    return f(scope);
+  return function * (...args) {
+    return f(...args);
   }
 }
 
