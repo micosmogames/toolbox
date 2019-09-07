@@ -8,11 +8,17 @@
 *  Promises at any time.
 *
 *  A Threadlet will only manage Threadables and will ignore any non Threadable functions and
-*  generators. Threadlet has 2 methods for setting up Threadable generators with parameters.
+*  generators. Threadlet has 3 methods for setting up Threadable generators with parameters.
 *     * Threadable.invoke(f, ...args) - Returns a Threadable generator if f is Threadable, otherwise
 *                                       just returns the result from f(..args).
 *     * Threadable.call(This, f, ..args) - As for invoke but will invoke f.call(This, ...args).
 *                                          f can also be a string and resolves to This[f].
+*     * Threadable.generator(v, ...args) - Takes any value and returns a Threadable generator.
+*                                          Args will be injected to produce Threadable generators
+*                                          for Functions and GeneratorFunctions.
+*                                          Methods will need to pre-bound.
+*                                          If v is a non function type then a generator that
+*                                          returns v or [v, ...args] is returned.
 */
 
 const ProtGenFn = Object.getPrototypeOf(function * () { });
@@ -69,20 +75,24 @@ Threadable.invoke = function(f, ...args) {
   return isaGeneratorFunction(f) ? f(...args) : f(...args);
 }
 
-Threadable.generator = function(gi) {
-  if (!isaGenerator(gi) || gi.isaThreadable)
-    return gi;
-  const wgi = (function * genWrapper () {
-    var resp = gi.next();
-    while (!resp.done) {
-      const v = yield resp.value;
-      resp = gi.next(v);
-    }
-    return resp.value;
-  })();
-  wgi.isaThreadable = true;
-  return wgi;
+Threadable.generator = function(v, ...args) {
+  var gi;
+  if (isaGenerator(v))
+    gi = v;
+  else if (isaGeneratorFunction(v))
+    gi = (v.isaThreadable ? v.fGenerator : v)(...args);
+  else if (typeof v === 'function')
+    gi = makeGeneratorFunction(v)(...args);
+  else {
+    const values = [v, ...args]
+    gi = (function * () { return values.length === 1 ? values[0] : values })();
+  }
+  gi.isaThreadable = true;
+  return gi;
 }
+
+Threadable.sleep = function (s) { return new Promise(resolve => { setTimeout(() => resolve(s), s * 1000) }) }
+Threadable.msSleep = function (ms) { return new Promise(resolve => { setTimeout(() => resolve(ms), ms) }) }
 
 // Generator function support services
 
