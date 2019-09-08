@@ -3,8 +3,8 @@
 *
 *  Threadables are asynchronous GeneratorFunctions that can be either managed by a Threadlet or
 *  called inline. If called inline they are implemented as an async function which returns a Promise.
-*  Promises that are yielded or returned from the Generator are waited on, whilst other values from
-*  a yield are immediately passed back in the next() Generator call.
+*  All returned or yielded values are waited on which will block the async function if the value
+*  is a Promise or Thenable.
 *  If managed by a Threadlet all yield and return points give the Threadlet arbitrator the opportunity
 *  to reschedule threadlets passed on assigned priorities, timeslice and yield intervals.
 *
