@@ -62,7 +62,6 @@ function Threadlet(...args) {
     endState: { value: 'ready', writable: true, enumerable: true },
     endValue: { value: undefined, writable: true, enumerable: true }
   });
-  console.log(threadlet.controls);
   return fPrivate.setObject(threadlet, {
     threadlet,
     lazyPromise: undefined,
@@ -105,7 +104,7 @@ function _ThreadletPrototype() {
         const lazyPromise = LazyPromise();
         const fRun = () => { Private.lazyPromise = lazyPromise; runThreadlet(this, Private, f, args) };
         Private.state !== 'ready' ? Private.queue.push(fRun) : fRun();
-        return lazyPromise.catch(this.reject.bind(this));
+        return lazyPromise.Catch(this.reject.bind(this));
       },
       enumerable: true
     },
@@ -158,10 +157,11 @@ function _ThreadletPrototype() {
       value(v) {
         if (v instanceof Error) {
           console.warn(`micosmo:threadlet:reject: ${this.name} Error(${v.message}). Returning 'undefined'`);
-          console.warn(v.stack);
+          if (v.stack)
+            console.warn(v.stack);
           v = undefined;
-        } else if (v instanceof Promise)
-          console.warn(`micosmo:threadlet:reject: ${this.name} Rejected value is a Promise(${v}). Returning the Promise`);
+        } else if (isPromisable(v))
+          console.warn(`micosmo:threadlet:reject: ${this.name} Rejected value is a Promise or Thenable. Returning resolved value`);
         else {
           console.warn(`micosmo:threadlet:reject: ${this.name} Rejected(${v}). Returning 'undefined'`);
           v = undefined;
@@ -245,10 +245,8 @@ var yieldThreadlet = declareMethod(function (value) {
   const threadlet = this.threadlet;
   const state = this.state;
   const isStopping = state === 'stopping';
-  const isFinishing = isStopping || state === 'ending';
-  const havePromise = typeof value === 'object' && (value instanceof Promise || value.isaLazyPromise);
-  if (havePromise && !isFinishing) {
-    value.then(v => yieldThreadlet.call(this, v), v => threadletFailed.call(this, v));
+  if (isPromisable(value)) {
+    asPromise(value).then(v => yieldThreadlet.call(this, v), v => threadletFailed.call(this, v));
     this.state = 'waiting';
     arb.threadletWaitingOnPromise(threadlet, this);
     return;
@@ -272,7 +270,7 @@ var yieldThreadlet = declareMethod(function (value) {
   threadlet.endValue = isStopping ? undefined : value;
   this.state = 'ready';
   this.stack = [];
-  havePromise ? value.then(v => this.lazyPromise.resolve(v)) : this.lazyPromise.resolve(value);
+  this.lazyPromise.resolve(value);
   arb.threadletEnded(threadlet, this);
   if (this.queue.length > 0)
     this.queue.shift()(); // Run the request that is queued up
@@ -302,4 +300,12 @@ function getThreadableGenerator(f, args) {
 function isaThreadable(f) {
   const ty = typeof f;
   return (ty === 'function' || ty === 'object') && f.isaThreadable;
+}
+
+function isPromisable(v) {
+  return typeof v === 'object' && (v instanceof Promise || v.then) // Accept thenables.
+}
+
+function asPromise(v) {
+  return v instanceof Promise ? v : v.isaLazyPromise ? v.promise : Promise.resolve(v);
 }

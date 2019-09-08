@@ -1,19 +1,21 @@
 /*
 *  threadable.js
 *
-*  Functions that can be managed by a Threadlet. Threadables can be called either directly or
-*  managed by a Threadlet when yielded or returned from a Threadable. However Threadables can only
-*  be called directly if the threadable does not yield a Promise. This requires the support
-*  of a Threadlet and an error will be thrown if this is detected. Threadables can return
-*  Promises at any time.
+*  Threadables are asynchronous GeneratorFunctions that can be either managed by a Threadlet or
+*  called inline. If called inline they are implemented as an async function which returns a Promise.
+*  Promises that are yielded or returned from the Generator are waited on, whilst other values from
+*  a yield are immediately passed back in the next() Generator call.
+*  If managed by a Threadlet all yield and return points give the Threadlet arbitrator the opportunity
+*  to reschedule threadlets passed on assigned priorities, timeslice and yield intervals.
 *
 *  A Threadlet will only manage Threadables and will ignore any non Threadable functions and
 *  generators. Threadlet has 3 methods for setting up Threadable generators with parameters.
-*     * Threadable.invoke(f, ...args) - Returns a Threadable generator if f is Threadable, otherwise
-*                                       just returns the result from f(..args).
-*     * Threadable.call(This, f, ..args) - As for invoke but will invoke f.call(This, ...args).
+*
+*     . Threadable.invoke(f, ...args)    - Returns a Threadable generator if f is Threadable, otherwise
+*                                          just returns the result from f(..args).
+*     . Threadable.call(This, f, ..args) - As for invoke but will invoke f.call(This, ...args).
 *                                          f can also be a string and resolves to This[f].
-*     * Threadable.generator(v, ...args) - Takes any value and returns a Threadable generator.
+*     . Threadable.generator(v, ...args) - Takes any value and returns a Threadable generator.
 *                                          Args will be injected to produce Threadable generators
 *                                          for Functions and GeneratorFunctions.
 *                                          Methods will need to pre-bound.
@@ -38,7 +40,7 @@ function Threadable(f) {
   if (f.isaThreadable)
     return f;
   if (isaGeneratorFunction(f))
-    fThreadable = makeThreadletSimulator(f);
+    fThreadable = makeAsyncFunction(f);
   else {
     fThreadable = f;
     f = makeGeneratorFunction(f);
@@ -83,10 +85,9 @@ Threadable.generator = function(v, ...args) {
     gi = (v.isaThreadable ? v.fGenerator : v)(...args);
   else if (typeof v === 'function')
     gi = makeGeneratorFunction(v)(...args);
-  else {
-    const values = [v, ...args]
-    gi = (function * () { return values.length === 1 ? values[0] : values })();
-  }
+  else
+    gi = (function * () { return args.length === 0 ? v : [v, ...args] })();
+
   gi.isaThreadable = true;
   return gi;
 }
@@ -102,16 +103,12 @@ function makeGeneratorFunction(f) {
   }
 }
 
-function makeThreadletSimulator(fGen) {
-  return function(...args) {
+function makeAsyncFunction(fGen) {
+  return async function (...args) {
     const gi = fGen.call(this, ...args);
     var resp = gi.next();
-    while (!resp.done) {
-      const v = resp.value;
-      if (typeof v === 'object' && (v instanceof Promise || v.isaLazyPromise))
-        throw new Error(`micosmo:threadable:Threadble: Threadable has yielded a Promise from a direct call. Requires a Threadlet`);
-      resp = gi.next(v);
-    }
+    while (!resp.done)
+      resp = gi.next(await resp.value);
     return resp.value;
   }
 }
