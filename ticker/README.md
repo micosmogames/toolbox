@@ -39,6 +39,7 @@ Aframe *ticker* implementation
 
 ## VERSIONS
 
+0.1.1 - Minor change to ticker.js
 0.1.0 - Initial release
 
 ## AUTHORS

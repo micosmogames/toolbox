@@ -140,6 +140,11 @@ undefined | The process step has finished.
 * Functions are generally easier to use than generator functions when using the builtin process step services.
 * When a process step calls another the Ticker process pushs the current process step onto a call stack. This ensures that there is only ever one level of process step connected to the Ticker. The process call stack is popped whenever the current process step is *done*. The Ticker process is finished when the call stack is empty.
 
+## HISTORY
+
+### Version 0.1.1
+* 'isaGeneratorFunction' moved to @micosmo/core/object
+
 ## LICENSE
 
 ISC - Internet Systems Consortium

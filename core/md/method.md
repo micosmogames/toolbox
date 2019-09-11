@@ -68,6 +68,9 @@ foobar.meth3();
 ## HISTORY
 
 ### Version 0.1.1
+* 'isGlobalThis' moved to object.js
+
+### Version 0.1.1
 * Removed automatic wrapping of methods with validation of *this* in *declaredMethod* and *asDeclaredMethod*. Methods now carry and retain an *isaDeclaredMethod* flag.
 * Added *checkThis* function to either wrap a method or perform inline *this* validation.
 * Removed method unwrapping from *method* function.

@@ -9,9 +9,10 @@
  *  All other function definitions should not reference 'this', other than arrow functions that are
  *  defined within the body of a method.
  *
- *  WARNING: Don't 'use strict' as we want to get the environments default globalThis.
- *
  */
+'use strict';
+
+const { isGlobalThis } = require('./object');
 
 module.exports = {
   asDeclaredMethod,
@@ -20,9 +21,6 @@ module.exports = {
   isaDeclaredMethod,
   method
 };
-
-const globalThis = (function () { return this })();
-const isGlobalThis = globalThis === undefined ? ths => ths === undefined : ths => ths === undefined || ths === globalThis;
 
 // Promotes a non-method function to pass 'this' as the first parameter. The function is assumed to interact with
 // an object that is accepted as the first argument.

@@ -1,13 +1,13 @@
 {
-  "name": "@micosmo/threadlet",
+  "name": "@micosmo/async",
   "version": "0.1.0",
-  "description": "Pseudo yieldable threads for Javascript",
+  "description": "Async services and utilties",
   "main": "index.js",
-  "homepage": "https://github.com/micosmogames/toolbox/blob/HEAD/threadlet/README.md",
+  "homepage": "https://github.com/micosmogames/toolbox/blob/HEAD/async/README.md",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/micosmogames/toolbox.git",
-    "directory": "threadlet"
+    "directory": "async"
   },
   "bugs": {
     "email": "micosmogames@gmail.com"
@@ -24,6 +24,10 @@
     "threads",
     "async",
     "asynchronous",
+    "synchronous",
+    "sync",
+    "synchronize",
+    "synchronise",
     "promise"
   ]
 }

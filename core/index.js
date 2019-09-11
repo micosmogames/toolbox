@@ -13,5 +13,6 @@ Object.assign(module.exports,
   require('./string'),
   require('./character'),
   require('./number'),
-  require('./compare')
+  require('./compare'),
+  require('./object')
 );

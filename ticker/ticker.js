@@ -4,9 +4,8 @@
 *  The basic ticker process element is based on a generator function.
 */
 
-var { declareMethod, method } = require('@micosmo/core/method');
+var { declareMethod, method, isaGeneratorFunction } = require('@micosmo/core');
 
-const ProtGenFn = Object.getPrototypeOf(function * () { });
 const TickerPrototype = _TickerPrototype();
 const DefaultTicker = Ticker('DefaultTicker');
 var idTickerProcess = 1;
@@ -366,10 +365,6 @@ function makeGeneratorFunction(f) {
         return resp; // 'stop' or chained function
     } while (true);
   }
-}
-
-function isaGeneratorFunction(f) {
-  return Object.getPrototypeOf(f) === ProtGenFn;
 }
 
 // Inbuilt generators

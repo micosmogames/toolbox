@@ -1,25 +1,26 @@
 /*
-*  arbitrator.js
+*  scheduler.js
 *
-*  Arbitrates the scheduling of Threadlets.
+*  Schedules Threadlets based on priority, timeslice, yield interval and wait status.
 *
-*  Threadlets are allocate 1 of 3 priorities. High, Normal & Low
+*  Threadlets are allocate 1 of 3 priorities. High, Default & Low
 */
+const { startTimer, peekTimer } = require('@micosmo/core/object');
 
 const Priority = Object.create(null, {
   High: { value: 1, enumerable: true },
-  Normal: { value: 2, enumerable: true },
+  Default: { value: 2, enumerable: true },
   Low: { value: 3, enumerable: true },
 })
 
 module.exports = {
-  arbitratorExports
+  schedulerExports
 };
 
 var runWorker;
 
 var flExportsRequested = false;
-function arbitratorExports(_runWorker) {
+function schedulerExports(_runWorker) {
   if (flExportsRequested)
     return;
   runWorker = _runWorker;
@@ -27,6 +28,7 @@ function arbitratorExports(_runWorker) {
     Priority,
     threadletStarted,
     threadletEnded,
+    threadletFailed,
     threadletYielding,
     threadletMustYield,
     pauseThreadlet,
@@ -42,7 +44,7 @@ var running = undefined;
 
 function threadletWaitingOnPromise(threadlet, Private) {
   if (!running || running.threadlet !== threadlet) {
-    error(`micosmo:threadlet:arbitrator:threadletWaitingOnPromise: Threadlet is not running`);
+    error(`micosmo:async:scheduler:threadletWaitingOnPromise: Threadlet is not running`);
     return;
   }
   removingThreadlet(running);
@@ -51,7 +53,7 @@ function threadletWaitingOnPromise(threadlet, Private) {
 
 function pauseThreadlet(threadlet, Private) {
   if (!running || running.threadlet !== threadlet) {
-    error(`micosmo:threadlet:arbitrator:pauseThreadlet: Threadlet is not running`);
+    error(`micosmo:async:scheduler:pauseThreadlet: Threadlet is not running`);
     return;
   }
   removingThreadlet(running);
@@ -67,7 +69,7 @@ function resumeThreadlet(threadlet, Private) {
 function queueThreadlet(threadlet, Private) {
   priorityQueues[threadlet.controls.priority].push({ threadlet, Private });
   Private.queueId = threadlet.controls.priority;
-  Private.workTimer = 0;
+  Private.workTime = 0;
   nThreads++;
 }
 
@@ -79,7 +81,7 @@ function dispatchThreadlet() {
   if (runQueue.length <= 0)
     updatePriorityQueues();
   running = runQueue.shift();
-  running.Private.workStartTime = Date.now();
+  running.Private.workTimer = startTimer();
   runWorker(running.Private);
 }
 
@@ -95,32 +97,32 @@ function updatePriorityQueues() {
 
 function threadletYielding(threadlet, Private) {
   if (!running || running.threadlet !== threadlet) {
-    error(`micosmo:threadlet:arbitrator:threadletYielding: Threadlet is not running`);
+    error(`micosmo:async:scheduler:threadletYielding: Threadlet is not running`);
     if (!running)
       dispatchThreadlet();
     return;
   }
   const controls = threadlet.controls;
-  const workTimer = Date.now() - Private.workStartTime;
-  Private.workTimer += workTimer;
-  Private.workStartTime = undefined;
-  if (workTimer < controls.timeslice) {
+  const workTime = peekTimer(Private.workTimer);
+  Private.workTime += workTime;
+  Private.workTimer = undefined;
+  if (workTime < controls.timeslice) {
     if (runQueue.length === 0)
       updatePriorityQueues();
     runQueue.push(running);
     return dispatchThreadlet();
   }
-  if (workTimer < controls.yieldInterval) {
+  if (workTime < controls.yieldInterval) {
     const o = running;
     nThreads--;
-    new Promise(resolve => { setTimeout(() => resolve(), controls.yieldInterval - workTimer) })
+    new Promise(resolve => { setTimeout(() => resolve(), Math.ceil(controls.yieldInterval - workTime)) })
       .then(() => yieldFinished(o));
     return dispatchThreadlet();
   }
   if (nThreads < 3)
     runQueue.push(running);
   else
-    priorityQueues[threadlet.priority].push(running);
+    priorityQueues[threadlet.controls.priority].push(running);
   dispatchThreadlet();
 }
 
@@ -128,7 +130,7 @@ function yieldFinished(o) {
   if (nThreads < 3)
     runQueue.push(o);
   else
-    priorityQueues[o.threadlet.priority].push(o);
+    priorityQueues[o.threadlet.controls.priority].push(o);
   if (nThreads++ <= 0)
     dispatchThreadlet();
 }
@@ -140,15 +142,31 @@ function threadletStarted(threadlet, Private) {
 }
 
 function threadletEnded(threadlet, Private) {
-  if (running.threadlet === threadlet) {
+  if (!tryEndingRunningThreadlet(threadlet, Private))
+    removeQueuedThreadlet(threadlet, Private);
+}
+
+function threadletFailed(threadlet, Private) {
+  if (!tryEndingRunningThreadlet(threadlet, Private))
+    tryRemoveQueuedThreadlet(threadlet, Private);
+}
+
+function tryEndingRunningThreadlet(threadlet, Private) {
+  if (running && running.threadlet === threadlet) {
     removingThreadlet(running);
     running = undefined;
-    return dispatchThreadlet();
+    dispatchThreadlet()
+    return true;
   }
-  removeQueuedThreadlet(threadlet, Private);
+  return false;
 }
 
 function removeQueuedThreadlet(threadlet, Private) {
+  if (!tryRemoveQueuedThreadlet(threadlet, Private))
+    error(`micosmo:async:scheduler:removeQueuedThreadlet: Threadlet is not queued`);
+}
+
+function tryRemoveQueuedThreadlet(threadlet, Private) {
   if (Private.queueId) {
     const queue = priorityQueues[Private.queueId];
     for (let i = 0; i < queue.length; i++) {
@@ -157,23 +175,23 @@ function removeQueuedThreadlet(threadlet, Private) {
         continue;
       queue.splice(i, 1);
       removingThreadlet(o);
-      return;
+      return true;
     }
   }
-  error(`micosmo:threadlet:arbitrator:removeQueuedThreadlet: Threadlet is not queued`);
+  return false;
 }
 
 function removingThreadlet(o) {
   const Private = o.Private;
   Private.queueId = undefined;
-  if (Private.workStartTime)
-    Private.workTimer += Date.now() - Private.workStartTime;
-  Private.workStartTime = undefined;
+  if (Private.workTime)
+    Private.workTime += peekTimer(Private.workTimer);
+  Private.workTimer = undefined;
   nThreads--;
 }
 
 function threadletMustYield(threadlet, Private) {
-  return (Date.now() - Private.workStartTime) >= threadlet.controls.timeslice;
+  return peekTimer(Private.workTimer) >= threadlet.controls.timeslice;
 }
 
 function error(msg) {
