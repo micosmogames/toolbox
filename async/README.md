@@ -1,4 +1,4 @@
-# @micosmo/threadlet
+# @micosmo/async
 
 TO BE COMPLETED
 

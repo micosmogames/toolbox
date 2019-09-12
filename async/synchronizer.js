@@ -4,26 +4,27 @@
 *  Light-weight form of a Threadlet that is not managed by a scheduler. Allows any function to
 *  be queued and dispatched in a synchronous manner. Default form returns a promise for each
 *  function that is queued. Variants:
-*     . Synchronizer.group(onReject) - Returns the same Promise for each function queued.
-*                                      onReject is optional. Resolves to an array of return
-*                                      values. group.start() to kick-off synchronizer.
-*     . Synchronizer.steps(onReject) - Returns the same Promise for each function queued.
-*                                      onReject is optional. Each return value is the
-*                                      parameter of next step function. Last return value
-*                                      is resolved value of steps.
+*     . Synchronizer.group() - Returns the same Promise for each function queued.
+*                              Resolves to an array of return values.
+*                              group.start() to kick-off synchronizer.
+*     . Synchronizer.steps() - Returns the same Promise for each function queued.
+*                              Each return value is a potential parameter of next step function.
+*                              Last return value is resolved value of steps.
 */
 
 const core = require('@micosmo/core');
 const fPrivate = core.newPrivateSpace();
 const { LazyPromise } = require('./lazypromise');
-const { handleRejection, catchFor, thenFor, finallyFor } = require('./utils');
+const { Promises } = require('./lib/utils');
 
 const StateReady = 0;
 const StateRunning = 1;
 const StateStopped = 2;
 const StatePaused = 3;
 const StatePending = 4;
-const States = ['ready', 'running', 'stopped', 'paused', 'pending'];
+const StateClosed = 5;
+const StateFailed = 6;
+const States = ['ready', 'running', 'stopped', 'paused', 'pending', 'closed', 'failed'];
 
 const SynchronizerPrototype = _SynchronizerPrototype();
 const StepArg = _StepArg();
@@ -31,24 +32,22 @@ const StepArg = _StepArg();
 module.exports = {
   Synchronizer,
   Synchroniser: Synchronizer,
-  StepArg
+  StepArg,
+  Promises
 };
 
 // Threadlet
 // Arguments:
 //    1. Name of Threadlet or timeslice
 //    2. Name followed by timeslice
-function Synchronizer(onReject = handleRejection) {
-  if (onReject && typeof onReject !== 'function')
-    throw new Error('micosmo:async:Synchronizer: Function required for onReject');
+function Synchronizer() {
   const synchronizer = Object.create(SynchronizerPrototype);
+  Object.defineProperty(synchronizer, 'promises', { value: Promises(synchronizer), enumerable: true })
   return fPrivate.setObject(synchronizer, {
     synchronizer,
-    onReject: onReject,
     lastLazyPromise: LazyPromise.resolve(),
     state: StateReady,
     queue: [],
-    handlers: [],
   });
 };
 
@@ -56,17 +55,12 @@ function _SynchronizerPrototype() {
   return Object.create(Object, {
     isaSynchronizer: { value: true, enumerable: true },
     isaSynchroniser: { value: true, enumerable: true },
-    exec: { value(f, ...args) { return newStep(this, f, args).Catch(fPrivate(this).onReject) }, enumerable: true },
-    boundExec: { value(This, f, ...args) { return this.exec((typeof f === 'string' ? This[f] : f).bind(This), args) }, enumerable: true },
-    invoke: { value(f, ...args) { return newStep(this, f, args).promise }, enumerable: true },
-    boundInvoke: { value(This, f, ...args) { return this.invoke((typeof f === 'string' ? This[f] : f).bind(This), args) }, enumerable: true },
+    run: { value(f, ...args) { return newTask(this, f, args).promise }, enumerable: true },
+    bindRun: { value(This, f, ...args) { return this.run((typeof f === 'string' ? This[f] : f).bind(This), args) }, enumerable: true },
     stop: { value() { fPrivate(this).state = StateStopped; return this }, enumerable: true },
     pause: { value() { fPrivate(this).state = StatePaused; return this }, enumerable: true },
     resume: { value() { resume(this); return this }, enumerable: true },
-    reject: { value(v) { return handleRejection(v) }, enumerable: true },
-    Then: { value: thenFor('Synchronizer', fPrivate), enumerable: true },
-    Catch: { value: catchFor('Synchronizer', fPrivate), enumerable: true },
-    Finally: { value: finallyFor('Synchronizer', fPrivate), enumerable: true },
+    reject: { value(v) { return Promises.reject(v, this.name) }, enumerable: true },
 
     isReady: { get() { return fPrivate(this).state === StateReady }, enumerable: true },
     isRunning: { get() { return fPrivate(this).state === StateRunning }, enumerable: true },
@@ -81,27 +75,27 @@ function resume(synchronizer) {
   const Private = fPrivate(this);
   if (Private.state === StatePaused) {
     Private.state = StateReady;
-    nextStep(Private);
+    nextTask(Private);
   }
 }
 
-function newStep(synchronizer, f, args) {
+function newTask(synchronizer, f, args) {
   const Private = fPrivate(synchronizer);
   if (typeof f !== 'function')
-    throw new Error('micosmo:async:Synchronizer:newStep: Missing function');
+    throw new Error('micosmo:async:Synchronizer:newTask: Missing function');
   if (Private.state === StateStopped)
-    throw new Error('micosmo:async:Synchronizer:newStep: Synchronizer has been stopped');
+    throw new Error('micosmo:async:Synchronizer:newTask: Synchronizer has been stopped');
   const lazyPromise = LazyPromise();
-  Private.handlers.forEach(hand => hand(lazyPromise)); // Attach all the Synchronizer level handlers
+  synchronizer.promises.apply(lazyPromise); // Attach all the Synchronizer level handlers
   const lastLazyPromise = Private.lastLazyPromise;
   const fRunSync = () => run(Private, lazyPromise, f, args);
   Private.queue.push(() => { Private.lazyPromise = lazyPromise; lastLazyPromise.Then(fRunSync, fRunSync) });
   Private.lastLazyPromise = lazyPromise;
-  nextStep(Private);
+  nextTask(Private);
   return lazyPromise;
 }
 
-function nextStep(Private) {
+function nextTask(Private) {
   if (Private.state === StateReady && Private.queue.length > 0) {
     Private.state = StatePending;
     Private.queue[0]();
@@ -111,102 +105,145 @@ function nextStep(Private) {
 function run(Private, lazyPromise, f, args) {
   Private.queue.shift(); // Pop me of the queue
   Private.state = StateRunning;
-  new Promise(resolve => resolve(f(...args))).then(v => { lazyPromise.resolve(v); Private.state = StateReady; nextStep(Private) })
+  new Promise(resolve => resolve(f(...args))).then(v => { lazyPromise.resolve(v); Private.state = StateReady; nextTask(Private) })
 }
+
+// Common prototype for Synchronizer.group and Synchronizer.steps
+
+const CommonPrototype = Object.create(Object, {
+  run: { value(f, ...args) { return addTask(this, f, args) }, enumerable: true },
+  bindRun: { value(This, f, ...args) { return this.run((typeof f === 'string' ? This[f] : f).bind(This), args) }, enumerable: true },
+  start: {
+    value() {
+      const Private = fPrivate(this);
+      if (Private.state !== StateReady)
+        return this;
+      const lazyPromise = Private.lazyPromise;
+      this.promises.clear(lazyPromise); // Attach and clear all the Group level handlers
+      Private.queue.forEach(task => this.runTask(Private, task));
+      Private.queue = undefined;
+      Private.state = StateRunning;
+      return lazyPromise.promise;
+    },
+    enumerable: true
+  },
+  close: {
+    value() {
+      const Private = fPrivate(this);
+      if (Private.state === StateClosed)
+        return Private.lazyPromise;
+      const lazyPromise = Private.lazyPromise;
+      if (Private.state === StateReady)
+        this.start();
+      else
+        this.promises.apply(lazyPromise); // Attach any additional Group level handlers
+      Private.state = StateClosed;
+      if (Private.state === StateFailed)
+        lazyPromise.reject(Private.failedValue);
+      return this.closingPromise(Private);
+    },
+    enumerable: true
+  },
+  reject: { value(v) { return Promises.reject(v, this.name) }, enumerable: true },
+})
+
+function addTask(sync, f, args) {
+  const Private = fPrivate(sync);
+  const task = sync.makeTask(Private, f, args);
+  Private.state === StateReady ? Private.queue.push(task) : sync.runTask(Private, task);
+  return sync;
+}
+
+function syncFailed(sync, v) {
+  const Private = fPrivate(sync);
+  if (Private.state === StateRunning)
+    Private.failedValue = v;
+  else if (Private.state === StateClosed)
+    Private.lazyPromise.reject(v);
+  Private.state = StateFailed;
+}
+
+function setSyncPrivateSpace(sync, additionalProperties) {
+  const privateObject = {
+    synchronizer: Synchronizer().promises.catch(v => syncFailed(sync, v)).owner,
+    state: StateReady,
+    lazyPromise: LazyPromise(),
+    queue: [],
+  };
+  Object.assign(privateObject, additionalProperties);
+  return fPrivate.setObject(sync, privateObject);
+}
+
+// Synchronizer.group - Manage tasks in a group.
 
 const groupPrototype = _groupPrototype();
 Synchronizer.group = function () {
   const group = Object.create(groupPrototype);
-  return fPrivate.setObject(group, {
+  Object.defineProperty(group, 'promises', { value: Promises(group), enumerable: true })
+  return setSyncPrivateSpace(group, {
     group,
-    queue: [],
-    handlers: [],
+    promises: [],
   });
 }
+
 function _groupPrototype() {
-  return Object.create(Object, {
+  return Object.create(CommonPrototype, {
     isaSyncGroup: { value: true, enumerable: true },
-    add: { value(f, ...args) { return addGroupStep(this, f, args) }, enumerable: true },
-    boundAdd: { value(This, f, ...args) { return this.invoke((typeof f === 'string' ? This[f] : f).bind(This), args) }, enumerable: true },
-    invoke: {
-      value() {
-        const Private = fPrivate(this);
-        if (Private.queue.length === 0)
-          return Promise.resolve(undefined);
-        const lazyPromise = LazyPromise();
-        Private.handlers.forEach(hand => hand(lazyPromise)); // Attach all the Group level handlers
-        const synchronizer = Synchronizer();
-        const promises = [];
-        Private.queue.forEach(step => promises.push(synchronizer.invoke(step.f, ...step.args)));
-        return lazyPromise.resolve(Promise.all(promises));
+    makeTask: { value(Private, f, args) { return makeGroupTask(Private, f, args) }, enumerable: true },
+    runTask: { value(Private, task) { return runGroupTask(Private, task) }, enumerable: true },
+    closingPromise: {
+      value(Private) {
+        return Private.lazyPromise.resolve(Private.promises.length === 0 ? undefined : Promise.all(Private.promises)).promise
       },
       enumerable: true
     },
-    exec: { value(onReject = handleRejection) { return this.invoke().catch(onReject) }, enumerable: true },
-    Then: { value: thenFor('Synchronizer.group', fPrivate), enumerable: true },
-    Catch: { value: catchFor('Synchronizer.group', fPrivate), enumerable: true },
-    Finally: { value: finallyFor('Synchronizer.group', fPrivate), enumerable: true },
   })
 }
 
-function addGroupStep(group, f, args) {
+function runGroupTask(Private, task) {
+  Private.promises.push(Private.synchronizer.run(task.f, ...task.args));
+}
+
+function makeGroupTask(Private, f, args) {
   if (typeof f !== 'function')
-    throw new Error('micosmo:async:Synchronizer.group:addGroupStep: Missing function');
-  const Private = fPrivate(group);
-  Private.queue.push({ f, args });
-  return Private.group;
+    throw new Error('micosmo:async:Synchronizer.group:addGroupTask: Missing function');
+  if (Private.state === StateClosed)
+    throw new Error('micosmo:async:Synchronizer.group:addGroupTask: Group has been closed');
+  return { f, args };
 }
 
 const stepsPrototype = _stepsPrototype();
 Synchronizer.steps = function () {
   const steps = Object.create(stepsPrototype);
-  return fPrivate.setObject(steps, {
+  Object.defineProperty(steps, 'promises', { value: Promises(steps), enumerable: true })
+  return setSyncPrivateSpace(steps, {
     steps,
-    queue: [],
-    handlers: [],
-    lastValue: undefined
+    lastTaskPromise: LazyPromise.resolve(),
+    lastValue: undefined,
   });
 }
 function _stepsPrototype() {
-  return Object.create(Object, {
+  return Object.create(CommonPrototype, {
     isaSyncSteps: { value: true, enumerable: true },
-    add: { value(f, ...args) { return addStepsStep(this, f, args) }, enumerable: true },
-    boundAdd: { value(This, f, ...args) { return this.invoke((typeof f === 'string' ? This[f] : f).bind(This), args) }, enumerable: true },
-    invoke: {
-      value() {
-        const Private = fPrivate(this);
-        if (Private.queue.length === 0)
-          return Promise.resolve(undefined);
-        const lazyPromise = LazyPromise();
-        Private.handlers.forEach(hand => hand(lazyPromise)); // Attach all the Steps level handlers
-        const synchronizer = Synchronizer().Catch(v => lazyPromise.reject(v));
-        var lastStepPromise = LazyPromise.resolve().promise;
-        Private.queue.forEach(step => {
-          lastStepPromise = lastStepPromise.lazyPromise
-            .Then(v => synchronizer.invoke(step.f, ...step.stepArg(v, step.args)))
-        });
-        lastStepPromise.then(v => lazyPromise.resolve(v));
-        return lazyPromise.promise;
-      },
-      enumerable: true
-    },
-    exec: { value(onReject = handleRejection) { return this.invoke().catch(onReject) }, enumerable: true },
-    Then: { value: thenFor('Synchronizer.group', fPrivate), enumerable: true },
-    Catch: { value: catchFor('Synchronizer.group', fPrivate), enumerable: true },
-    Finally: { value: finallyFor('Synchronizer.group', fPrivate), enumerable: true },
+    makeTask: { value(Private, f, args) { return makeStepsTask(Private, f, args) }, enumerable: true },
+    runTask: { value(Private, task) { return runStepsTask(Private, task) }, enumerable: true },
+    closingPromise: { value(Private) { return Private.lastTaskPromise.then(v => Private.lazyPromise.resolve(v)); }, enumerable: true },
   })
 }
 
-function addStepsStep(group, f, args) {
-  const Private = fPrivate(group);
+function makeStepsTask(Private, f, args) {
   let stepArg = StepArg.none;
   if (typeof f === 'function' && f.isaStepArg) {
     stepArg = f; f = args[0]; args = args.slice(1);
   }
   if (typeof f !== 'function')
-    throw new Error('micosmo:async:Synchronizer.steps:addStepsStep: Missing function');
-  Private.queue.push({ stepArg, f, args });
-  return Private.steps;
+    throw new Error('micosmo:async:Synchronizer.steps:makeStepsTask: Missing function');
+  return { stepArg, f, args };
+}
+
+function runStepsTask (Private, task) {
+  (Private.lastTaskPromise = Private.synchronizer.run(() => task.f(...task.stepArg(Private.lastValue, task.args))))
+    .lazyPromise.Then(v => { Private.lastValue = v });
 }
 
 function _StepArg() {
@@ -219,8 +256,26 @@ function _StepArg() {
     arg: { value(i) { return markStepArg((v, args) => { args[i < 0 ? args.length - i : i] = v; return args }) }, enumerable: true },
     all: { value: markStepArg((v, args) => { return replaceAllArgValue(v, undefined, args) }), enumerable: true },
     allNull: { value: markStepArg((v, args) => { return replaceAllArgValue(v, null, args) }), enumerable: true },
-    args: { value: markStepArg((v, args) => { return Array.isArray(v) ? v : [v] }), enumerable: true }
+    args: { value: markStepArg((v, args) => { return Array.isArray(v) ? v : [v] }), enumerable: true },
+    map: { value(mappings) { return markStepArg(mapStepArg(mappings)) }, enumerable: true },
+    run: { value(f) { return markStepArg((v, args) => f(v, args)) }, enumerable: true },
   })
+}
+
+function mapStepArg(mappings) {
+  if (!Array.isArray(mappings))
+    throw new Error('micosmo:async:Synchronizer.steps:mapStepArg: Mappings must be an array');
+  // Mappings contain indicies that define where a value in the return array is placed in
+  // args. If a mapping is a non number then the corresponding return value is not placed in the args
+  return function (v, args) {
+    if (!Array.isArray(v))
+      v = [v];
+    mappings.forEach((iLoc, idx) => {
+      if (typeof iLoc !== 'number')
+        return;
+      args[iLoc < 0 ? args.length - iLoc : iLoc] = v[idx];
+    });
+  }
 }
 
 function markStepArg(f) {

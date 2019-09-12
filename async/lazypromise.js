@@ -41,6 +41,7 @@ function LazyPromise() {
       lazyPromise._reject = reject;
     }
   }));
+  lazyPromise.lazyPromise = lazyPromise; // Align with Promises that are attached to LazyPromises
   lazyPromise.isSettled = false;
   return lazyPromise;
 };
@@ -48,6 +49,7 @@ function LazyPromise() {
 function _LazyPromisePrototype() {
   return Object.create(Object, {
     isaLazyPromise: { value: true, enumerable: true },
+    isCatchable: { get: function () { return this.haveCatch === true }, enumerable: true },
     resolve: {
       value: function (v) {
         this.isSettled = true;
@@ -70,10 +72,24 @@ function _LazyPromisePrototype() {
       },
       enumerable: true
     },
+
     then: { value: function (resolve) { resolve(this.promise) }, enumerable: true },
     Then: { value: function (onResolved, onRejected) { return assignPromise(this, this.promise.then(onResolved, onRejected)) }, enumerable: true },
-    Catch: { value: function (onRejected) { return assignPromise(this, this.promise.catch(onRejected)) }, enumerable: true },
+    Catch: { value: function (onRejected) { this.haveCatch = true; return assignPromise(this, this.promise.catch(onRejected)) }, enumerable: true },
     Finally: { value: function (onFinally) { return assignPromise(this, this.promise.finally(onFinally)) }, enumerable: true },
+
+    promises: {
+      get: function() {
+        const This = this;
+        return this._promises || (this._promises = {
+          then: function (onResolved, onRejected) { This.Then(onResolved, onRejected); return this },
+          catch: function (onRejected) { This.Catch(onRejected); return this },
+          finally: function (onFinally) { This.Finally(onFinally); return this },
+          owner: This
+        });
+      },
+      enumerable: true
+    }
   });
 }
 
@@ -83,16 +99,26 @@ LazyPromise.reject = v => LazyPromise().reject(v);
 function assignPromise(lazyPromise, promise) {
   lazyPromise.promise = promise;
   promise.lazyPromise = lazyPromise;
-  return promise;
+  return lazyPromise;
 }
 
+// Semaphore implementation based on LazyPromises
+
+// Allow return values
 function Semaphore(signals) {
-  if (signals !== undefined && (typeof signals !== 'number' || signals <= 0))
-    throw new Error('micosmo:async:Semaphore: Number of signals must be a number > 0');
+  var signalValues = [];
+  if (signals !== undefined) {
+    if (typeof signals === 'number' && signals > 0)
+      signalValues.length = signals;
+    else if (Array.isArray(signals))
+      signalValues = signals.slice(0);
+    else
+      throw new Error('micosmo:async:Semaphore: Initial signals must be a number > 0 or an array of signal values');
+  }
   const sem = Object.create(SemaphorePrototype);
   return fPrivate.setObject(sem, {
     sem,
-    signalCount: signals || 0,
+    signalValues,
     waiters: [],
   });
 };
@@ -101,43 +127,28 @@ function _SemaphorePrototype() {
   return Object.create(Object, {
     isaSemaphore: { value: true, enumerable: true },
     signal: {
-      value() {
+      value(v) {
         const Private = fPrivate(this);
         if (Private.waiters.length > 0) {
           const waiter = Private.waiters.shift();
           if (waiter.timer)
             clearTimeout(waiter.timer);
-          waiter.lazyPromise.resolve();
+          waiter.lazyPromise.resolve(v);
         } else
-          Private.signalCount++;
+          Private.signalValues.push(v);
         return this;
       },
       enumerable: true
     },
     wait: {
-      value() {
+      value(ms, timeoutValue) {
         const Private = fPrivate(this);
-        if (Private.signalCount > 0) {
-          Private.signalCount--;
-          return LazyPromise.resolve().promise;
-        }
+        if (Private.signalValues.length > 0)
+          return LazyPromise.resolve(Private.signalValues.shift()).promise;
         const lp = LazyPromise();
-        Private.waiters.push({ lazyPromise: lp });
-        return lp.promise
-      },
-      enumerable: true
-    },
-    waitFor: {
-      value(ms) {
-        if (typeof ms !== 'number' || ms <= 0)
-          return this.wait();
-        const Private = fPrivate(this);
-        if (Private.signalCount > 0) {
-          Private.signalCount--;
-          return LazyPromise.resolve().promise;
-        }
-        const lp = LazyPromise();
-        const timer = setTimeout(() => { removeWaiter(Private, lp); lp.resolve() }, ms);
+        var timer;
+        if (ms !== undefined && typeof ms === 'number' && ms > 0)
+          timer = setTimeout(() => { removeWaiter(Private, lp); lp.resolve(timeoutValue) }, ms);
         Private.waiters.push({ lazyPromise: lp, timer });
         return lp.promise
       },

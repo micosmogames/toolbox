@@ -44,13 +44,13 @@
 *        threadlet.Finally(promise, ...)
 */
 
-const sched = require('./scheduler').schedulerExports(runWorker);
+const sched = require('./lib/scheduler');
 const core = require('@micosmo/core');
 const { declareMethod } = core;
 const fPrivate = core.newPrivateSpace();
 const { Threadable } = require('./threadable');
 const { LazyPromise } = require('./lazypromise');
-const { isaThreadable, isPromisable, handleRejection, thenFor, catchFor, finallyFor } = require('./utils');
+const { isaThreadable, isPromisable, Promises } = require('./lib/utils');
 
 const ThreadletPrototype = _ThreadletPrototype();
 const DefaultPriority = sched.Priority.Default;
@@ -73,6 +73,7 @@ var idThreadlet = 0;
 
 module.exports = {
   Threadlet,
+  Promises
 };
 
 // Threadlet
@@ -85,10 +86,6 @@ function Threadlet(...args) {
   var [priority, timeslice, yieldInterval] =
     [Number.parseInt(controls.priority), Number.parseFloat(controls.timeslice), Number.parseInt(controls.yieldInterval)];
   const threadlet = Object.create(ThreadletPrototype, {
-    exec: { value(f, ...args) { return newStep(this, f, args).Catch(v => this.controls.onReject(v, this.name)) }, enumerable: true },
-    invoke: { value(f, ...args) { return newStep(this, f, args).promise }, enumerable: true },
-    boundExec: { value(This, f, ...args) { return this.exec((typeof f === 'string' ? This[f] : f).bind(This), ...args) }, enumerable: true },
-    boundInvoke: { value(This, f, ...args) { return this.invoke((typeof f === 'string' ? This[f] : f).bind(This), ...args) }, enumerable: true },
     id: { value: ++idThreadlet, enumerable: true },
     name: { value: args[0] || `Threadlet:${idThreadlet}`, enumerable: true },
     controls: {
@@ -96,15 +93,16 @@ function Threadlet(...args) {
         priority: { value: Math.min(Math.max(Math.abs(priority || DefaultPriority), sched.Priority.High), sched.Priority.Low), enumerable: true },
         timeslice: { value: !isNaN(timeslice) ? Math.max(timeslice, 0) : DefaultTimeslice, enumerable: true },
         yieldInterval: { value: Math.abs(yieldInterval || DefaultYieldInterval), enumerable: true },
-        onReject: { value: controls.onReject || handleRejection, enumerable: true }
       }),
       enumerable: true
     },
     endState: { value: StateReady, writable: true, enumerable: true },
     endValue: { value: undefined, writable: true, enumerable: true }
   });
+  Object.defineProperty(threadlet, 'promises', { value: Promises(threadlet), enumerable: true })
   return fPrivate.setObject(threadlet, {
     threadlet,
+    runWorker() { runWorker(this) },
     lastLazyPromise: LazyPromise.resolve(),
     lazyPromise: undefined,
     nextParm: undefined,
@@ -112,7 +110,6 @@ function Threadlet(...args) {
     waitState: StateReady,
     stack: [],
     queue: [],
-    handlers: [],
     workStartTime: undefined,
     workTimer: 0,
   });
@@ -142,6 +139,8 @@ function validateArgs(args) {
 function _ThreadletPrototype() {
   const prot = Object.create(Object, {
     isaThreadlet: { value: true, enumerable: true },
+    run: { value(f, ...args) { return newTask(this, f, args).promise }, enumerable: true },
+    bindRun: { value(This, f, ...args) { return this.run((typeof f === 'string' ? This[f] : f).bind(This), ...args) }, enumerable: true },
     stop: {
       value() {
         const Private = fPrivate(this);
@@ -177,11 +176,8 @@ function _ThreadletPrototype() {
       },
       enumerable: true
     },
-    Then: { value: thenFor('Threadlet', fPrivate), enumerable: true },
-    Catch: { value: catchFor('Threadlet', fPrivate), enumerable: true },
-    Finally: { value: finallyFor('Threadlet', fPrivate), enumerable: true },
+    reject: { value(v) { return Promises.reject(v, this.name) }, enumerable: true },
 
-    reject: { value(v) { return this.controls.onReject(v, this.name) }, enumerable: true },
     isReady: { get() { return fPrivate(this).state === StateReady }, enumerable: true },
     isRunning: { get() { return fPrivate(this).state === StateRunning }, enumerable: true },
     isPausing: { get() { return fPrivate(this).state === StatePausing }, enumerable: true },
@@ -200,10 +196,10 @@ function _ThreadletPrototype() {
   return prot;
 }
 
-function newStep(threadlet, f, args) {
+function newTask(threadlet, f, args) {
   const Private = fPrivate(threadlet);
   const lazyPromise = LazyPromise();
-  Private.handlers.forEach(hand => hand(lazyPromise)); // Attach all the Threadlet level handlers
+  threadlet.promises.apply(lazyPromise); // Attach all the Threadlet level handlers
   const lastLazyPromise = Private.lastLazyPromise;
   const fRunThreadlet = () => runThreadlet(threadlet, Private, f, args);
   const fRun = () => { Private.lazyPromise = lazyPromise; lastLazyPromise.Then(fRunThreadlet, fRunThreadlet) };

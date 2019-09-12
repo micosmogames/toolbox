@@ -14,28 +14,16 @@ const Priority = Object.create(null, {
 })
 
 module.exports = {
-  schedulerExports
+  Priority,
+  threadletStarted,
+  threadletEnded,
+  threadletFailed,
+  threadletYielding,
+  threadletMustYield,
+  pauseThreadlet,
+  resumeThreadlet,
+  threadletWaitingOnPromise
 };
-
-var runWorker;
-
-var flExportsRequested = false;
-function schedulerExports(_runWorker) {
-  if (flExportsRequested)
-    return;
-  runWorker = _runWorker;
-  return {
-    Priority,
-    threadletStarted,
-    threadletEnded,
-    threadletFailed,
-    threadletYielding,
-    threadletMustYield,
-    pauseThreadlet,
-    resumeThreadlet,
-    threadletWaitingOnPromise
-  }
-}
 
 const runQueue = [];
 const priorityQueues = [runQueue, [], [], []];
@@ -81,8 +69,9 @@ function dispatchThreadlet() {
   if (runQueue.length <= 0)
     updatePriorityQueues();
   running = runQueue.shift();
-  running.Private.workTimer = startTimer();
-  runWorker(running.Private);
+  const Private = running.Private;
+  Private.workTimer = startTimer();
+  Private.runWorker();
 }
 
 function updatePriorityQueues() {

@@ -10,5 +10,5 @@ Object.assign(module.exports,
   require('./threadable'),
   require('./LazyPromise'),
   require('./synchronizer'),
-  require('./utils')
+  require('./lib/utils')
 );
