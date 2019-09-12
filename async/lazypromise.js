@@ -15,6 +15,7 @@
 */
 const core = require('@micosmo/core');
 const fPrivate = core.newPrivateSpace();
+const { Promises } = require('./lib/utils');
 
 const LazyPromisePrototype = _LazyPromisePrototype();
 const SemaphorePrototype = _SemaphorePrototype();
@@ -28,8 +29,10 @@ module.exports = {
 // Arguments: None
 // Has resolve and reject methods to settle the Promise outide of the Promise's executor function.
 function LazyPromise() {
-  const lazyPromise = Object.create(LazyPromisePrototype);
-  lazyPromise.isSettled = false;
+  const lazyPromise = Object.create(LazyPromisePrototype, {
+    isSettled: { value: false, writable: true, enumerable: true },
+    _mustCatch: { value: true, writable: true, enumerable: true },
+  });
   assignPromise(lazyPromise, new Promise((resolve, reject) => {
     if (lazyPromise.isSettled) {
       if (lazyPromise.isResolved)
@@ -42,16 +45,17 @@ function LazyPromise() {
     }
   }));
   lazyPromise.lazyPromise = lazyPromise; // Align with Promises that are attached to LazyPromises
-  lazyPromise.isSettled = false;
   return lazyPromise;
 };
 
 function _LazyPromisePrototype() {
   return Object.create(Object, {
     isaLazyPromise: { value: true, enumerable: true },
-    isCatchable: { get: function () { return this.haveCatch === true }, enumerable: true },
+    mustCatch: { value: function (bool) { this._mustCatch = bool; return this }, enumerable: true },
     resolve: {
       value: function (v) {
+        if (this._mustCatch)
+          this.Catch(Promises.reject);
         this.isSettled = true;
         this.isResolved = true;
         this.value = v
@@ -63,6 +67,8 @@ function _LazyPromisePrototype() {
     },
     reject: {
       value: function (v) {
+        if (this._mustCatch)
+          this.Catch(Promises.reject);
         this.isSettled = true;
         this.isResolved = false;
         this.value = v
@@ -75,7 +81,7 @@ function _LazyPromisePrototype() {
 
     then: { value: function (resolve) { resolve(this.promise) }, enumerable: true },
     Then: { value: function (onResolved, onRejected) { return assignPromise(this, this.promise.then(onResolved, onRejected)) }, enumerable: true },
-    Catch: { value: function (onRejected) { this.haveCatch = true; return assignPromise(this, this.promise.catch(onRejected)) }, enumerable: true },
+    Catch: { value: function (onRejected) { return assignPromise(this, this.promise.catch(onRejected)) }, enumerable: true },
     Finally: { value: function (onFinally) { return assignPromise(this, this.promise.finally(onFinally)) }, enumerable: true },
 
     promises: {

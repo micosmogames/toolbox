@@ -7,11 +7,11 @@
 
 module.exports = {
   Promises,
-  setDefaultRejectionHandler
+  setDefaultCatchHandler
 };
 
-var RejectionHandler = DefaultRejectionHandler;
-function setDefaultRejectionHandler(fReject) { RejectionHandler = fReject };
+var CatchHandler = DefaultCatchHandler;
+function setDefaultCatchHandler(fReject) { Promises.defaultCatchHandler = CatchHandler = fReject };
 
 const PromisesPrototype = _PromisesPrototype();
 
@@ -55,8 +55,6 @@ function _PromisesPrototype() {
     apply: {
       value: function (lazyPromise) {
         this.handlers.forEach(handler => handler(lazyPromise));
-        if (!lazyPromise.isCatchable)
-          lazyPromise.Catch(RejectionHandler);
         return this;
       },
       enumerable: true
@@ -70,16 +68,16 @@ function _PromisesPrototype() {
       },
       enumerable: true
     },
-    reject: { value(v, msg) { return RejectionHandler(v, msg) }, enumerable: true },
-    defaultReject: { value(v, msg) { return DefaultRejectionHandler(v, msg) }, enumerable: true },
+    reject: { value(v, msg) { return CatchHandler(v, msg) }, enumerable: true },
+    miReject: { value(v, msg) { return DefaultCatchHandler(v, msg) }, enumerable: true },
   })
 };
 
 Promises.then = function (promise, onFulfilled, onRejected) { return aPromise(promise).then(onFulfilled, onRejected) }
 Promises.catch = function (promise, onRejected) { return aPromise(promise).catch(onRejected) }
 Promises.finally = function (promise, onFinally) { return aPromise(promise).finally(onFinally) }
-Promises.reject = function (v, msg) { return RejectionHandler(v, msg) };
-Promises.defaultReject = function (v, msg) { return DefaultRejectionHandler(v, msg) };
+Promises.reject = function (v, msg) { return CatchHandler(v, msg) };
+Promises.miReject = function (v, msg) { return DefaultCatchHandler(v, msg) };
 
 function aPromise(promise) {
   if (typeof promise !== 'object')
@@ -89,17 +87,17 @@ function aPromise(promise) {
   return promise.promises || Promise.resolve(promise);
 }
 
-function DefaultRejectionHandler(v, msg) {
+function DefaultCatchHandler(v, msg) {
   msg = msg ? ` ${msg}.` : '';
   if (v instanceof Error) {
-    console.warn(`micosmo:async:RejectionHandler:${msg} Error(${v.message}). Returning 'undefined'`);
+    console.warn(`micosmo:async:DefaultCatchHandler:${msg} Error(${v.message}). Returning 'undefined'`);
     if (v.stack)
       console.warn(v.stack);
     v = undefined;
   } else if (isPromisable(v))
-    console.warn(`micosmo:async:RejectionHandler:${msg} Rejected value is a Promise or Thenable. Returning resolved value`);
+    console.warn(`micosmo:async:DefaultCatchHandler:${msg} Rejected value is a Promise or Thenable. Returning resolved value`);
   else {
-    console.warn(`micosmo:async:RejectionHandler:${msg} Rejected(${v}). Returning 'undefined'`);
+    console.warn(`micosmo:async:DefaultCatchHandler:${msg} Rejected(${v}). Returning 'undefined'`);
     v = undefined;
   }
   return Promise.resolve(v);

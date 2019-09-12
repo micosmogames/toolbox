@@ -12,7 +12,7 @@ module.exports = {
   isPromisable,
   asPromise,
   isaLazyPromise,
-  setDefaultRejectionHandler,
+  setDefaultCatchHandler,
   Promises: common.Promises
 };
 
@@ -33,9 +33,9 @@ function isaLazyPromise(v) {
   return typeof v === 'object' && v.isaLazyPromise;
 }
 
-function setDefaultRejectionHandler(fReject) {
+function setDefaultCatchHandler(fReject) {
   if (typeof fReject !== 'function')
-    throw new Error(`micosmo:async:setDefaultRejectionHandler: Default rejection handler must be a Function`);
-  common.setDefaultRejectionHandler(fReject);
+    throw new Error(`micosmo:async:setDefaultCatchHandler: Default catch handler must be a Function`);
+  common.setDefaultCatchHandler(fReject);
   return fReject;
 }
