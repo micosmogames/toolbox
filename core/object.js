@@ -5,7 +5,6 @@
  *
  * Note: 'use strict' must employed at function scope NOT module scope.
  */
-
 const ProtGenFn = Object.getPrototypeOf(function * () { });
 const MarkGen = String((function * () { })());
 const fTrue = () => true;
@@ -17,8 +16,9 @@ const isGlobalThis = globalThis === undefined ? ths => ths === undefined : ths =
 var JsEnvType = getJsEnvType();
 const isClient = JsEnvType === 'client' ? fTrue : fFalse;
 const isServer = JsEnvType === 'server' ? fTrue : fFalse;
-const startTimer = isClient() ? startClientTimer : startServerTimer;
-const peekTimer = isClient() ? peekClientTimer : peekServerTimer;
+
+const timeMark = isClient() ? clientTimeMark : serverTimeMark;
+const timeInterval = isClient() ? clientTimeInterval : serverTimeInterval;
 
 module.exports = {
   globalThis,
@@ -28,17 +28,21 @@ module.exports = {
   isGlobalThis,
   isServer,
   peekTimer,
-  startTimer
+  peekTimers,
+  startTimer: timeMark
 }
 
 function isaGenerator (fi) { return String(fi) === MarkGen }
 function isaGeneratorFunction(f) { return typeof f === 'function' && Object.getPrototypeOf(f) === ProtGenFn }
 
-function startClientTimer() { return Window.performance.now() }
-function peekClientTimer(tmStart) { return Window.performance.now() - tmStart }
+function clientTimeMark() { return Window.performance.now() }
+function clientTimeInterval(tmMark, tmStart) { return tmMark - tmStart }
 
-function startServerTimer() { return process.hrtime.bigint() }
-function peekServerTimer(tmStart) { return Number(process.hrtime.bigint() - tmStart) / 1000000 }
+function peekTimer(timer) { return timeInterval(timeMark(), timer) }
+function peekTimers(...args) { const mark = timeMark(); return args.map(timer => (timer && timeInterval(mark, timer)) || 0) }
+
+function serverTimeMark() { return process.hrtime.bigint() }
+function serverTimeInterval(tmMark, tmStart) { return Number(tmMark - tmStart) / 1000000 }
 
 function getJsEnvType() {
   var env

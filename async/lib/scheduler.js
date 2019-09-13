@@ -5,7 +5,7 @@
 *
 *  Threadlets are allocate 1 of 3 priorities. High, Default & Low
 */
-const { startTimer, peekTimer } = require('@micosmo/core/object');
+const { startTimer, peekTimer, peekTimers } = require('@micosmo/core/object');
 
 const Priority = Object.create(null, {
   High: { value: 1, enumerable: true },
@@ -35,6 +35,7 @@ function threadletWaitingOnPromise(threadlet, Private) {
     error(`micosmo:async:scheduler:threadletWaitingOnPromise: Threadlet is not running`);
     return;
   }
+  Private.waitTimer = startTimer();
   removingThreadlet(running);
   dispatchThreadlet();
 }
@@ -57,7 +58,6 @@ function resumeThreadlet(threadlet, Private) {
 function queueThreadlet(threadlet, Private) {
   priorityQueues[threadlet.controls.priority].push({ threadlet, Private });
   Private.queueId = threadlet.controls.priority;
-  Private.workTime = 0;
   nThreads++;
 }
 
@@ -92,9 +92,10 @@ function threadletYielding(threadlet, Private) {
     return;
   }
   const controls = threadlet.controls;
-  const workTime = peekTimer(Private.workTimer);
+  var [workTime, waitTime] = peekTimers(Private.workTimer, Private.waitTimer);
   Private.workTime += workTime;
-  Private.workTimer = undefined;
+  Private.workTimer = Private.waitTimer = undefined;
+  workTime += waitTime; // Wait time contributes to the overall work time decisions.
   if (workTime < controls.timeslice) {
     if (runQueue.length === 0)
       updatePriorityQueues();
@@ -108,24 +109,19 @@ function threadletYielding(threadlet, Private) {
       .then(() => yieldFinished(o));
     return dispatchThreadlet();
   }
-  if (nThreads < 3)
-    runQueue.push(running);
-  else
-    priorityQueues[threadlet.controls.priority].push(running);
+  (nThreads < 3 ? runQueue : priorityQueues[threadlet.controls.priority]).push(running);
   dispatchThreadlet();
 }
 
 function yieldFinished(o) {
-  if (nThreads < 3)
-    runQueue.push(o);
-  else
-    priorityQueues[o.threadlet.controls.priority].push(o);
+  (nThreads < 3 ? runQueue : priorityQueues[o.threadlet.controls.priority]).push(o);
   if (nThreads++ <= 0)
     dispatchThreadlet();
 }
 
 function threadletStarted(threadlet, Private) {
   queueThreadlet(threadlet, Private);
+  Private.workTime = 0;
   if (nThreads <= 1)
     dispatchThreadlet();
 }
@@ -173,7 +169,7 @@ function tryRemoveQueuedThreadlet(threadlet, Private) {
 function removingThreadlet(o) {
   const Private = o.Private;
   Private.queueId = undefined;
-  if (Private.workTime)
+  if (Private.workTimer)
     Private.workTime += peekTimer(Private.workTimer);
   Private.workTimer = undefined;
   nThreads--;

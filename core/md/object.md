@@ -23,11 +23,17 @@ isClient() | Returns *true* if Javascript is running in a client environment.
 isGlobalThis(v) | Returns *true* if *v* is a global *this* value. With the introduction of *strict mode*, *undefined* is also considered to be a global *this*.
 isServer() | Returns *true* if Javascript is running in a server environment.
 peekTimer(timer) | Returns the timer interval since *timer* started in millisconds with microsecond precision where supported.
+peekTimers(...timers) | Returns an array with the timer interval for each timer in *timers*. Undefined timers will have a *0* result.
 startTimer() | Returns a timer reference point for calculating timer intervals up to microsecond precision. Environment dependent.
 
 #### PROPERTIES
 
   None
+
+## HISTORY
+
+### Version 0.2.0
+* Added peekTimers.
 
 ## LICENSE
 
