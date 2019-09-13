@@ -5,8 +5,26 @@ The *this* keyword in Javascript is a common root cause to many programming erro
 One way of reducing programming errors and mitigating the impact of incorrect use of functions that reference *this* is to implement a programming policy that limits the use of 'this' to explicitly defined methods. Explicit methods are:
 
 1. Function definitions that are explicitly defined within the body of an object literal. If such definitons reference *this* then they are assumed to be a method. Inline object literal function definitions that do not reference *this* are assumed to be normal functions assigned to a property of the object.
-2. Function definitions that are defined outside of the body of an object literal that are explcitly declared as a method. Such definitions can be assigned to object properties and behave as a method. See *declareMethod* decorator function.
+2. Function definitions that are defined outside of the body of an object literal that are explcitly declared as a method. Such definitions can be assigned to object properties and behave as a method. See *declareMethod* and *declareMethods* decorator functions.
 3. Normal functions that accept a target object as the first parameter and are explicitly promoted to a method and assigned to an object property. See *asDeclaredMethod* decorator function.
+
+Example codeing style:
+
+```javascript
+  declareMethods(meth1, meth2, ...); // At top of module
+  ...
+  const myObject = {
+    meth1: method(meth1), // Requires that 'meth1' is a method and has been declared
+    meth2: checkThis(method(meth2)), // 'meth2' must be a method and makes sure that when called there is a valid 'this'
+    meth3: asDeclaredMethod(f1), // Promotes 'f1' to be a method. Maps 'this' to arg0
+    ...
+  };
+  ...
+  method(meth1); // Defines the function 'meth1' as a method and makes sure that it is declared
+  function meth1() {
+    ...
+  }
+```
 
 ## API
 
@@ -22,34 +40,50 @@ Function | Description
 -------- | -----------
 asDeclaredMethod(f) | Returns a method function that wraps *f* that is assumed to accept a target object as the first argument. The promoted function passes *this* as the first parameter to *f*.
 checkThis(f) | Returns a new *wrapper* method function that validates the *this* binding of the method function *f* (*f* will be promoted to a method if required). The *wrapper* method will throw an error if the *this* value is set to the default *this* for the current javascript execution environment and mode. Enforces the requirement for an explicit *this* value be bound to the method by either invoking as *object.method(...)*, *method.bind(object)(...)* or *method.call(object, ...)*. The wrapped method function *f* is assigned to the *method* property of the returned function.
-checkThis(o) | Performs an immediate check of *o* and throws an error if *o* is set to the default *this* for the current javascript execution environment and mode. This call can be imbedded in a function in preference to wrapping the function. Returns *o*.
+checkThis(v) | Performs an immediate check of *v* and throws an error if *v* is set to the default *this* for the current javascript execution environment and mode. This call can be imbedded in a function in preference to wrapping the function. Returns *v*.
+checkThis(f, true) | As for *checkThis(v)*, i.e. *f* is treated as a value. Returns *f*.
 declareMethod(f) | Marks *f* as a method function. Returns *f*.
 isaDeclaredMethod | Returns a boolean indicating whether the function is a declared method.
-method(f) | Returns a method function that expects a *this* binding. Returns *f* if *f* is already a method or promotes *f* to a method by calling *asDeclaredMethod*. Typically *method* will be employed to assign external methods to object properties.
+method(f) | Defines *f* as a method and checks that it has been declared. Returns *f*. As of *core* package version 0.2.0, *method* no longer promotes non methods to methods.
 
 ### EXAMPLE
 
 ```javascript
-const { asDeclaredMethod, declareMethod, method } = require('@micosmo/core/method');
+const { asDeclaredMethod, checkThis, declareMethod, declareMethods, method } = require('@micosmo/core/method');
 
-const meth1 = declareMethod(function () {
-  console.log('meth1: Object Name =', this.name);
-});
-
-const meth2 = asDeclaredMethod(function (o) {
-  console.log('meth2: Object Name =', o.name);
-});
-
-function meth3(o) {
-  console.log('meth3: Object Name =', o.name);
-};
+declareMethods(meth1, meth4);
 
 const foobar = {
   name: 'foobar',
   meth1: method(meth1), // Declared method
-  meth2: method(meth2), // Declared promoted method
-  meth3: method(meth3) // Implicitly promoted method
+  meth2: asDeclaredMethod(f), // Function 'f' promoted to a method
+  meth3: declareMethod(function () { // Optionally delare an inline function as a method.
+    console.log('meth3: Object Name =', this.name);
+  }),
+  meth4: checkThis(method(meth4)), // Wrap method to validate 'this' value.
+  meth5: declareMethod(meth5) // Can declare external functions as methods inline but must occur before method definition
 }
+
+method(meth1); // Defines as a method and validates declaration
+function meth1() {
+  console.log('meth1: Object Name =', this.name);
+}
+
+function f(o) {
+  console.log('f: Object Name =', o.name);
+}
+
+method(meth4); // Defines as a method and validates declaration
+function meth4() {
+  console.log('meth4: Object Name =', this.name);
+}
+
+method(meth5); // Defines as a method and validates declaration
+function meth5() {
+  checkThis(this); // Inline check to enure that 'this' is valid
+  console.log('meth5: Object Name =', this.name);
+}
+
 
 foobar.meth1();
 /*
@@ -57,15 +91,45 @@ foobar.meth1();
 */
 foobar.meth2();
 /*
-  meth2: Object Name = foobar
+  f: Object Name = foobar
 */
 foobar.meth3();
 /*
   meth3: Object Name = foobar
 */
+foobar.meth4();
+/*
+  meth3: Object Name = foobar
+*/
+foobar.meth5();
+/*
+  meth3: Object Name = foobar
+*/
+try {
+    const f = foobar.meth4;
+    f();
+} catch (err) {
+    console.log('meth4: Failed with error:', err.message);
+}
+/*
+  meth4: Failed with error: micosmo:method:checkThis: Attempting to call a method as a function. Require o.method(...), method.bind(o)(...) or method.call(o, ...)
+*/
+try {
+    const f = foobar.meth5;
+    f();
+} catch (err) {
+    console.log('meth5: Failed with error:', err.message);
+}
+/*
+  meth5: Failed with error: micosmo:method:checkThis: Inline - Attempting to call a method as a function. Require o.method(...), method.bind(o)(...) or method.call(o, ...)
+*/
 ```
 
 ## HISTORY
+
+### Version 0.2.0
+* Rework of interface to improve usability.
+* Main change to *method* function which no longer promotes non methods to methods. Now throws an error if method has not been declared.
 
 ### Version 0.1.1
 * 'isGlobalThis' moved to object.js

@@ -7,8 +7,10 @@
  */
 "use strict";
 
-var { newPrivateSpace } = require('./private');
-var { declareMethod, method } = require('./method');
+const { newPrivateSpace } = require('./private');
+const { declareMethods, method } = require('./method');
+
+declareMethods(copyReplicator, copyPublicReplicator, cloneReplicator, clonePublicReplicator);
 
 module.exports = {
   assign,
@@ -100,14 +102,16 @@ copyValues.public = function (from, to) {
 }
 
 // WARNING: copyReplicator is a method not a function. 'this' is a context
-var copyReplicator = declareMethod(function (from, to) {
+method(copyReplicator)
+function copyReplicator(from, to) {
   return copyOther(this, from, to) || newPrivateSpace.replicate(this, from, copyObject(this, from, to));
-});
+}
 
 // WARNING: copyPublicReplicator is a method not a function. 'this' is a context
-var copyPublicReplicator = declareMethod(function (from, to) {
+method(copyPublicReplicator)
+function copyPublicReplicator(from, to) {
   return copyOther(this, from, to) || copyObject(this, from, to);
-});
+}
 
 function copyOther(ctxt, from, to) {
   if (Array.isArray(from))
@@ -167,14 +171,16 @@ cloneValues.public = function (from, to) {
 }
 
 // WARNING: cloneReplicator is a method not a function. 'this' is a context
-var cloneReplicator = declareMethod(function (from, to) {
+method(cloneReplicator);
+function cloneReplicator(from, to) {
   return cloneOther(this, from, to) || newPrivateSpace.replicate(this, from, cloneObject(this, from, to));
-});
+}
 
 // WARNING: clonePublicReplicator is a method not a function. 'this' is a context
-var clonePublicReplicator = declareMethod(function (from, to) {
+method(clonePublicReplicator);
+function clonePublicReplicator(from, to) {
   return cloneOther(this, from, to) || cloneObject(this, from, to);
-});
+}
 
 function cloneOther(ctxt, from, to) {
   if (Array.isArray(from))

@@ -62,7 +62,7 @@ const { copy, method, newPrivateSpace, ... } = require('@micosmo/core');
 
 ## VERSIONS
 
-* 0.1.4 - Added object related services. Minor change to method.js.
+* 0.2.0 - Rework of method interface to improve usability. Added object related services. Minor change to method.js.
 * 0.1.3 - Fix path in md document structure
 * 0.1.2 - Fix repository path in package.json. Added *compare*. Fix to *bind*.
 * 0.1.1 - Rework of method (see [method](./md/method.md#HISTORY)) and context table fix to replicate
