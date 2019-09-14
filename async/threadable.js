@@ -21,7 +21,7 @@
 *     . Threadable.boundWith(This, v, ...args) - As above but binds This if v is a function.
 */
 
-const { isaGeneratorFunction, isaGenerator } = require('@micosmo/core/object');
+const { isaGeneratorFunction, isaGenerator } = require('@micosmo/core/function');
 
 module.exports = {
   Threadable,
@@ -37,7 +37,7 @@ function Threadable(f) {
   if (f.isaThreadable)
     return f;
   if (isaGeneratorFunction(f))
-    fThreadable = makeAsyncFunction(f);
+    fThreadable = makeThreadbleDriver(f);
   else {
     fThreadable = f;
     f = makeGeneratorFunction(f);
@@ -46,7 +46,7 @@ function Threadable(f) {
     isaThreadable: { value: true, enumerable: true },
     fGenerator: { value: f, enumerable: true },
     with: { value(...args) { return setThreadable(f(...args)) }, enumerable: true },
-    boundWith: { value(This, ...args) { return setThreadable(f.bind(This)(...args)) }, enumerable: true }
+    bindWith: { value(This, ...args) { return setThreadable(f.bind(This)(...args)) }, enumerable: true }
   });
   return fThreadable;
 };
@@ -56,7 +56,7 @@ Threadable.with = function(v, ...args) {
   return setThreadable(gf ? gf(...args) : v);
 }
 
-Threadable.boundWith = function (This, v, ...args) {
+Threadable.bindWith = function (This, v, ...args) {
   const gf = asGeneratorFunction(v);
   return setThreadable(gf ? gf.bind(This)(...args) : v);
 }
@@ -80,14 +80,32 @@ function makeGeneratorFunction(f) {
   }
 }
 
-function makeAsyncFunction(fGen) {
-  return async function (...args) {
-    const gi = fGen.call(this, ...args);
-    var resp = gi.next();
-    while (!resp.done)
-      resp = gi.next(await resp.value);
-    return resp.value;
+function makeThreadbleDriver(fGen) {
+  return (...args) => threadbleDriver(fGen, args);
+}
+
+async function threadbleDriver(fGen, args) {
+  const stack = [fGen.call(this, ...args)];
+  var resp, value;
+  while (stack.length > 0) {
+    var gi = stack.shift();
+    for (;;) {
+      resp = gi.next(value);
+      value = resp.value;
+      if (typeof value === 'function')
+        value = value.isaThreadable ? value() : value; // Get back a Promise from Threadable
+      else if (isaGenerator(value) && value.isaThreadable) {
+        if (!resp.done)
+          stack.push(gi);
+        gi = value; value = undefined;
+        continue;
+      }
+      if (resp.done)
+        break;
+      value = await value;
+    }
   }
+  return value;
 }
 
 function setThreadable(o) {

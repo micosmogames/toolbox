@@ -1,13 +1,13 @@
-# @micosmo/core/object
+# @micosmo/core/function
 
-Object related services and utilities.
+Function related services and utilities.
 
 ## API
 
 ### IMPORTING
 
 ```javascript
-var { isClient, ... } = require('@micosmo/core/object');
+var { isaGenerator, ... } = require('@micosmo/core/function');
 ```
 
 ### EXPORTS
@@ -16,15 +16,13 @@ var { isClient, ... } = require('@micosmo/core/object');
 
 Function | Description
 -------- | -----------
-isClient() | Returns *true* if Javascript is running in a client environment.
-isGlobalThis(v) | Returns *true* if *v* is a global *this* value. With the introduction of *strict mode*, *undefined* is also considered to be a global *this*.
-isServer() | Returns *true* if Javascript is running in a server environment.
+bind(f,&nbsp;o) | Return a bound function of *f* for *o*. Returns the same bound function for the same *f* and *o*.
+isaGenerator(o) | Returns *true* if *o* is a GeneratorFunction iterator (Generator).
+isaGeneratorFunction(f) | Returns *true* if *f* is a GeneratorFunction.
 
 #### PROPERTIES
 
-Function | Description
--------- | -----------
-globalThis | The global *this* value for the current Javascript environment.
+  None
 
 ## LICENSE
 

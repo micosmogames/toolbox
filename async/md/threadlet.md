@@ -1,8 +1,16 @@
-# @micosmo/threadlet/threadlet
+# @micosmo/async/threadlet
 
-TO BE COMPLETED
+Threadlets are asynchronous containers that serialise tasks. Threadlets tasks can be defined as a generator function where each yield point enables the Threadlet to give up control of the Javascript thread for other threadlets or promise based tasks to be dispatched. Each task function is defined as a *Threadable* asynchronous function which allows the underlying Javascript function or method to be invoked with or without *Threadlet* support. Threadables can yield or return control to other threadables that can represent synchronous style applications that run in an asynchronous manner.
 
-Generic *ticker* implementation.
+Threadlets are based on promises with threadables akin to Javascript *async* functions, and supports the following features:
+
+1. Tasks are independent and each task is assigned a promise when dispatched to a *Threadlet*.
+2. A threadlet can be assign default task settlement handlers that are attached to every task.
+3. All tasks are assigned a default *catch* handler.
+4. Threadlet scheduling is handled by a separate scheduler. Threadlets can be configured with a *priority*, *timeslice* and *yieldInterval* that guides the scheduler dispatching decisions.
+5. Threadlets can abstract away the handling of promises and async functions potentially helping to simplify the structure of asynchronous applications.
+6. All tasks are run asynchronously regardless of whether they have asynchronous behaviour.
+7. Implements a traditional threaded style of asynchronous programming.
 
 ## API
 

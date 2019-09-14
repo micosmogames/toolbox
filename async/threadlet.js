@@ -46,11 +46,13 @@
 
 const sched = require('./lib/scheduler');
 const core = require('@micosmo/core');
-const { declareMethod } = core;
+const { declareMethods, method } = core;
 const fPrivate = core.newPrivateSpace();
 const { Threadable } = require('./threadable');
 const { LazyPromise } = require('./lazypromise');
 const { isaThreadable, isPromisable, Promises } = require('./lib/utils');
+
+declareMethods(worker, yieldThreadlet, threadletFailed);
 
 const ThreadletPrototype = _ThreadletPrototype();
 const DefaultPriority = sched.Priority.Default;
@@ -223,7 +225,8 @@ function runWorker(Private) {
 }
 
 // Note: The worker is bound to the private space of the Threadlet.
-var worker = declareMethod(function (resolve, reject) {
+method(worker);
+function worker(resolve, reject) {
   const threadlet = this.threadlet;
   if (this.state === StateWaiting) {
     // Have been rescheduled after wait state so restore state
@@ -272,10 +275,11 @@ var worker = declareMethod(function (resolve, reject) {
     resolve(value);
     return;
   }
-});
+};
 
 // Note: The yielder is bound to the private space of the Threadlet.
-var yieldThreadlet = declareMethod(function (value) {
+method(yieldThreadlet);
+function yieldThreadlet(value) {
   const threadlet = this.threadlet;
   this.nextParm = value;
   switch (this.state) {
@@ -305,10 +309,11 @@ var yieldThreadlet = declareMethod(function (value) {
   sched.threadletEnded(threadlet, this);
   if (this.queue.length > 0)
     this.queue[0](); // Run the request that is queued up
-});
+};
 
 // Note: The rejector is bound to the private space of the Threadlet.
-var threadletFailed = declareMethod(function (value) {
+method(threadletFailed);
+function threadletFailed(value) {
   const threadlet = this.threadlet;
   this.state = StateReady;
   this.stack = [];
@@ -318,7 +323,7 @@ var threadletFailed = declareMethod(function (value) {
   sched.threadletFailed(threadlet, this);
   if (this.queue.length > 0)
     this.queue[0](); // Run the request that is queued up
-});
+};
 
 // Threadable support services
 

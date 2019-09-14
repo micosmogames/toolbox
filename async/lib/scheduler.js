@@ -5,7 +5,7 @@
 *
 *  Threadlets are allocate 1 of 3 priorities. High, Default & Low
 */
-const { startTimer, peekTimer, peekTimers } = require('@micosmo/core/object');
+const { startTimer, peekTimer, stopTimer } = require('@micosmo/core/time');
 
 const Priority = Object.create(null, {
   High: { value: 1, enumerable: true },
@@ -35,7 +35,7 @@ function threadletWaitingOnPromise(threadlet, Private) {
     error(`micosmo:async:scheduler:threadletWaitingOnPromise: Threadlet is not running`);
     return;
   }
-  Private.waitTimer = startTimer();
+  Private.waitTimer = startTimer(Private.waitTimer); // Will create timer on first call
   removingThreadlet(running);
   dispatchThreadlet();
 }
@@ -70,7 +70,7 @@ function dispatchThreadlet() {
     updatePriorityQueues();
   running = runQueue.shift();
   const Private = running.Private;
-  Private.workTimer = startTimer();
+  Private.workTimer = startTimer(Private.workTimer); // Will create timer on first call
   Private.runWorker();
 }
 
@@ -92,10 +92,9 @@ function threadletYielding(threadlet, Private) {
     return;
   }
   const controls = threadlet.controls;
-  var [workTime, waitTime] = peekTimers(Private.workTimer, Private.waitTimer);
+  var workTime = stopTimer(Private.workTimer);
   Private.workTime += workTime;
-  Private.workTimer = Private.waitTimer = undefined;
-  workTime += waitTime; // Wait time contributes to the overall work time decisions.
+  workTime += stopTimer(Private.waitTimer); // Wait time contributes to the overall work time decisions.
   if (workTime < controls.timeslice) {
     if (runQueue.length === 0)
       updatePriorityQueues();
@@ -169,9 +168,7 @@ function tryRemoveQueuedThreadlet(threadlet, Private) {
 function removingThreadlet(o) {
   const Private = o.Private;
   Private.queueId = undefined;
-  if (Private.workTimer)
-    Private.workTime += peekTimer(Private.workTimer);
-  Private.workTimer = undefined;
+  Private.workTime += stopTimer(Private.workTimer);
   nThreads--;
 }
 

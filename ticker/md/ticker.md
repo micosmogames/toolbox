@@ -144,6 +144,7 @@ undefined | The process step has finished.
 
 ### Version 0.1.1
 * 'isaGeneratorFunction' moved to @micosmo/core/object
+* Updated to core 0.2.0
 
 ## LICENSE
 

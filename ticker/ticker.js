@@ -4,7 +4,12 @@
 *  The basic ticker process element is based on a generator function.
 */
 
-var { declareMethod, method, isaGeneratorFunction } = require('@micosmo/core');
+const { declareMethods, method } = require('@micosmo/core/method');
+const { isaGeneratorFunction } = require('@micosmo/core/function');
+
+console.log(require('@micosmo/core'));
+
+declareMethods(tickProcess, tickTicker);
 
 const TickerPrototype = _TickerPrototype();
 const DefaultTicker = Ticker('DefaultTicker');
@@ -85,7 +90,8 @@ function _TickerPrototype() {
   };
 }
 
-var tickTicker = declareMethod(function (tm, dt) {
+method(tickTicker);
+function tickTicker(tm, dt) {
   const processes = this.processes;
   var nProcesses = processes.length; // Don't want to process anything that is attached in this tick cycle
   for (let i = 0; i < nProcesses;) {
@@ -98,11 +104,11 @@ var tickTicker = declareMethod(function (tm, dt) {
     } else
       i++;
   }
-});
+}
 
 function attachTicker(ticker, process) {
   if (ticker.tick === fNoop)
-    ticker.tick = method(tickTicker);
+    ticker.tick = tickTicker;
   ticker.processes.push(process);
 }
 
@@ -230,8 +236,6 @@ function _Process(cfg) {
   return this;
 };
 
-var tickProcess = declareMethod(_tickProcess);
-
 _Process.prototype = {
   start(ticker) {
     if (this.isStarted)
@@ -243,9 +247,9 @@ _Process.prototype = {
     } else
       this.ticker = this.defaultTicker;
     this.isStarted = true;
-    this.tick = method(tickProcess);
+    this.tick = tickProcess;
     if (this.msTimeout)
-      this.tick = getTimeoutFn(method(tickProcess).bind(this), this.msTimeout);
+      this.tick = getTimeoutFn(tickProcess.bind(this), this.msTimeout);
     this.gTick = this.onTick(this.state); // Create an instance of our generator.
     attachTicker(this.ticker, this);
     return this;
@@ -273,7 +277,8 @@ _Process.prototype = {
   },
 };
 
-function _tickProcess(tm, dt) {
+method(tickProcess);
+function tickProcess(tm, dt) {
   // Manage the generators for this process.
   // Note that we preserve the state.data across calls.
   // Provides support for iterator like generators

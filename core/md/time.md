@@ -1,13 +1,13 @@
-# @micosmo/core/object
+# @micosmo/core/time
 
-Object related services and utilities.
+Time related services and utilities.
 
 ## API
 
 ### IMPORTING
 
 ```javascript
-var { isClient, ... } = require('@micosmo/core/object');
+var { startTimer, ... } = require('@micosmo/core/time');
 ```
 
 ### EXPORTS
@@ -16,15 +16,13 @@ var { isClient, ... } = require('@micosmo/core/object');
 
 Function | Description
 -------- | -----------
-isClient() | Returns *true* if Javascript is running in a client environment.
-isGlobalThis(v) | Returns *true* if *v* is a global *this* value. With the introduction of *strict mode*, *undefined* is also considered to be a global *this*.
-isServer() | Returns *true* if Javascript is running in a server environment.
+peekTimer(timer) | Returns the timer interval since *timer* started in millisconds with microsecond precision where supported.
+startTimer(timer) | Returns a started timer for determining timer intervals up to microsecond precision. Environment dependent. Argument *timer* is optional and if provided and stopped, will be restarted.
+stopTimer(timer) | As for *peekTimer* but will also stop the timer.
 
 #### PROPERTIES
 
-Function | Description
--------- | -----------
-globalThis | The global *this* value for the current Javascript environment.
+  None
 
 ## LICENSE
 

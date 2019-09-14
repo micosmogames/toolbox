@@ -16,7 +16,7 @@
   "license": "ISC",
   "dependencies": {},
   "devDependencies": {
-    "@micosmo/core": "^0.1.3"
+    "@micosmo/core": "^0.2.0"
   },
   "scripts": {},
   "keywords": [

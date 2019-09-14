@@ -24,6 +24,10 @@ Contains character testing services.
 
 Contains value comparison services.
 
+### [function](md/function.md)
+
+Function related services and utilities.
+
 ### [method](md/method.md)
 
 Contains a decorator service to promote a function that accepts an object as the first argument to be a method of that object type.
@@ -48,12 +52,16 @@ Functions for assigning, copying and cloning Javascript objects at both a descri
 
 Contains a string building service.
 
+### [time](md/time.md)
+
+Time related services and utilities.
+
 ## IMPORTING
 
 The interfaces for all the modules contained in this package have been rolled into the default exports for the package.
 
 ```javascript
-const tb = require('@micosmo/core');
+const core = require('@micosmo/core');
 ```
 or
 ```javascript
@@ -62,7 +70,7 @@ const { copy, method, newPrivateSpace, ... } = require('@micosmo/core');
 
 ## VERSIONS
 
-* 0.2.0 - Rework of method interface to improve usability. Added object related services. Minor change to method.js.
+* 0.2.0 - Rework of method interface to improve usability. Added object, time & function related services.
 * 0.1.3 - Fix path in md document structure
 * 0.1.2 - Fix repository path in package.json. Added *compare*. Fix to *bind*.
 * 0.1.1 - Rework of method (see [method](./md/method.md#HISTORY)) and context table fix to replicate

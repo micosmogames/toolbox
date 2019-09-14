@@ -6,6 +6,7 @@
 "use strict";
 
 Object.assign(module.exports,
+  require('./object'),
   require('./replicate'),
   require('./private'),
   require('./method'),
@@ -14,5 +15,6 @@ Object.assign(module.exports,
   require('./character'),
   require('./number'),
   require('./compare'),
-  require('./object')
+  require('./time'),
+  require('./function')
 );
