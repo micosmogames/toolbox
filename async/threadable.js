@@ -12,15 +12,14 @@
 *  generators. Threadlet has 3 methods for setting up Threadable generators with parameters.
 *
 *     . threadable.with(...args)    - Returns a generator instance for the Threadable.
-*     . threadable.boundWith(This, ..args) - As above but binds This to the Threadable
+*     . threadable.bindWith(This, ..args) - As above but binds This to the Threadable
 *     . Threadable.with(v, ...args) - Takes any value and returns a Threadable generator.
 *                                     Args will be injected to produce Threadable generators
 *                                     for Functions and GeneratorFunctions.
 *                                     If v is a non function type then a generator that
 *                                     returns v or [v, ...args] is returned.
-*     . Threadable.boundWith(This, v, ...args) - As above but binds This if v is a function.
+*     . Threadable.bindWith(This, v, ...args) - As above but binds This if v is a function.
 */
-
 const { isaGeneratorFunction, isaGenerator } = require('@micosmo/core/function');
 
 module.exports = {
@@ -65,8 +64,10 @@ function asGeneratorFunction (v) {
   if (isaGenerator(v))
     return;
   if (isaGeneratorFunction(v))
-    return v.isaThreadable ? v.fGenerator : v;
-  return typeof v === 'function' ? makeGeneratorFunction(v) : function * (...args) { return args.length === 0 ? v : [v, ...args] };
+    return v;
+  return typeof v === 'function'
+    ? (v.isaThreadable ? v.fGenerator : makeGeneratorFunction(v))
+    : function * (...args) { return args.length === 0 ? v : [v, ...args] };
 }
 
 Threadable.sleep = function (s) { return new Promise(resolve => { setTimeout(() => resolve(s), s * 1000) }) }

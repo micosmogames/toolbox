@@ -7,8 +7,6 @@
 const { declareMethods, method } = require('@micosmo/core/method');
 const { isaGeneratorFunction } = require('@micosmo/core/function');
 
-console.log(require('@micosmo/core'));
-
 declareMethods(tickProcess, tickTicker);
 
 const TickerPrototype = _TickerPrototype();

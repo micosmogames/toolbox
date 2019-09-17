@@ -7,10 +7,14 @@
 */
 const { startTimer, peekTimer, stopTimer } = require('@micosmo/core/time');
 
+const High = 1;
+const Default = 2;
+const Low = 3;
+
 const Priority = Object.create(null, {
-  High: { value: 1, enumerable: true },
-  Default: { value: 2, enumerable: true },
-  Low: { value: 3, enumerable: true },
+  High: { value: High, enumerable: true },
+  Default: { value: Default, enumerable: true },
+  Low: { value: Low, enumerable: true },
 })
 
 module.exports = {
@@ -29,6 +33,7 @@ const runQueue = [];
 const priorityQueues = [runQueue, [], [], []];
 var nThreads = 0;
 var running = undefined;
+var schedCycle = High;
 
 function threadletWaitingOnPromise(threadlet, Private) {
   if (!running || running.threadlet !== threadlet) {
@@ -36,8 +41,7 @@ function threadletWaitingOnPromise(threadlet, Private) {
     return;
   }
   Private.waitTimer = startTimer(Private.waitTimer); // Will create timer on first call
-  removingThreadlet(running);
-  dispatchThreadlet();
+  removingRunningThreadlet();
 }
 
 function pauseThreadlet(threadlet, Private) {
@@ -45,28 +49,42 @@ function pauseThreadlet(threadlet, Private) {
     error(`micosmo:async:scheduler:pauseThreadlet: Threadlet is not running`);
     return;
   }
-  removingThreadlet(running);
-  dispatchThreadlet();
+  removingRunningThreadlet();
 }
 
 function resumeThreadlet(threadlet, Private) {
   queueThreadlet(threadlet, Private);
-  if (nThreads <= 1)
-    dispatchThreadlet();
+  dispatchThreadlet();
 }
 
 function queueThreadlet(threadlet, Private) {
-  priorityQueues[threadlet.controls.priority].push({ threadlet, Private });
+  const priority = threadlet.controls.priority;
+  addToPriorityQueue(priority, { threadlet, Private });
+  //  if (schedCycle > High && schedCycle >= priority && priorityQueues[priority].length === 1)
+  //    schedCycle = priority - 1; // Prevent this threadlet from being scheduled immediately if there are higher priority threadlets
   Private.queueId = threadlet.controls.priority;
   nThreads++;
 }
 
+function addToPriorityQueue(priority, thrdDetails) {
+/*
+  if (priority === High)
+    priorityQueues[High].push(thrdDetails);
+  else {
+    let i = priority - 1;
+    for (; i > 0; i--)
+      priorityQueues[priority].push(undefined); // Insert a gap in the queue to slow down this threadlet
+    priorityQueues[priority].push(thrdDetails);
+  }
+  */
+  priorityQueues[priority].push(thrdDetails);
+}
+
 function dispatchThreadlet() {
-  running = undefined;
-  if (nThreads <= 0)
+  if (running || nThreads <= 0)
     return;
   // Clear the run queue first
-  if (runQueue.length <= 0)
+  if (runQueue.length === 0)
     updatePriorityQueues();
   running = runQueue.shift();
   const Private = running.Private;
@@ -75,13 +93,23 @@ function dispatchThreadlet() {
 }
 
 function updatePriorityQueues() {
-  // Adjust threadlet priorities by promoting first threadlet in a queue
-  // to a higher queue. This will ensure there is always something in
-  // the run queue.
-  for (let i = Priority.Low; i > 0; i--) {
-    if (priorityQueues[i].length > 0)
-      priorityQueues[i - 1].push(priorityQueues[i].shift());
+  // The 'schedCycle' indicates how many piority levels are processed this run.
+  // Firstly we must find a Threadlet to place in the runqueue.
+  let i = High;
+  for (; i <= Low; i++) {
+    if (priorityQueues[i].length === 0)
+      continue;
+    runQueue.push(priorityQueues[i].shift());
+    break;
   }
+  // Now shuffle the remaining queues based on our current cycle
+  for (; i <= schedCycle; i++) {
+    if (priorityQueues[i].length === 0)
+      continue;
+    priorityQueues[i - 1].push(priorityQueues[i].shift());
+  }
+  // Update the scheduler cycle
+  schedCycle = schedCycle % Low + 1;
 }
 
 function threadletYielding(threadlet, Private) {
@@ -96,9 +124,16 @@ function threadletYielding(threadlet, Private) {
   Private.workTime += workTime;
   workTime += stopTimer(Private.waitTimer); // Wait time contributes to the overall work time decisions.
   if (workTime < controls.timeslice) {
-    if (runQueue.length === 0)
-      updatePriorityQueues();
-    runQueue.push(running);
+    if (runQueue.length === 0 && nThreads > 1) {
+      // Promote another threadlet's priority
+      for (let i = 1; i <= Low; i++) {
+        if (priorityQueues[i].length === 0)
+          continue;
+        priorityQueues[i - 1].push(priorityQueues[i].shift());
+        break;
+      }
+    }
+    runQueue.push(running); running = undefined;
     return dispatchThreadlet();
   }
   if (workTime < controls.yieldInterval) {
@@ -106,23 +141,25 @@ function threadletYielding(threadlet, Private) {
     nThreads--;
     new Promise(resolve => { setTimeout(() => resolve(), Math.ceil(controls.yieldInterval - workTime)) })
       .then(() => yieldFinished(o));
+    running = undefined;
     return dispatchThreadlet();
   }
-  (nThreads < 3 ? runQueue : priorityQueues[threadlet.controls.priority]).push(running);
+  addToPriorityQueue(threadlet.controls.priority, running); running = undefined;
   dispatchThreadlet();
 }
 
 function yieldFinished(o) {
-  (nThreads < 3 ? runQueue : priorityQueues[o.threadlet.controls.priority]).push(o);
-  if (nThreads++ <= 0)
+  if (nThreads++ <= 0) {
+    runQueue.push(o);
     dispatchThreadlet();
+  } else
+    addToPriorityQueue(o.threadlet.controls.priority, o);
 }
 
 function threadletStarted(threadlet, Private) {
   queueThreadlet(threadlet, Private);
   Private.workTime = 0;
-  if (nThreads <= 1)
-    dispatchThreadlet();
+  dispatchThreadlet();
 }
 
 function threadletEnded(threadlet, Private) {
@@ -137,9 +174,7 @@ function threadletFailed(threadlet, Private) {
 
 function tryEndingRunningThreadlet(threadlet, Private) {
   if (running && running.threadlet === threadlet) {
-    removingThreadlet(running);
-    running = undefined;
-    dispatchThreadlet()
+    removingRunningThreadlet();
     return true;
   }
   return false;
@@ -163,6 +198,11 @@ function tryRemoveQueuedThreadlet(threadlet, Private) {
     }
   }
   return false;
+}
+
+function removingRunningThreadlet() {
+  removingThreadlet(running); running = undefined;
+  dispatchThreadlet();
 }
 
 function removingThreadlet(o) {

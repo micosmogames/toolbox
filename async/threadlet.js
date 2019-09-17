@@ -45,9 +45,8 @@
 */
 
 const sched = require('./lib/scheduler');
-const core = require('@micosmo/core');
-const { declareMethods, method } = core;
-const fPrivate = core.newPrivateSpace();
+const { declareMethods, method, newPrivateSpace } = require('@micosmo/core');
+const fPrivate = newPrivateSpace();
 const { Threadable } = require('./threadable');
 const { LazyPromise } = require('./lazypromise');
 const { isaThreadable, isPromisable, Promises } = require('./lib/utils');
@@ -57,18 +56,16 @@ declareMethods(worker, yieldThreadlet, threadletFailed);
 const ThreadletPrototype = _ThreadletPrototype();
 const DefaultPriority = sched.Priority.Default;
 const DefaultTimeslice = 0;
-const DefaultYieldInterval = 2;
+const DefaultYieldInterval = 0;
 
 const StateReady = 0;
 const StateRunning = 1;
-const StateStopping = 2;
-const StateStopped = 3;
-const StatePausing = 4;
-const StatePaused = 5;
-const StateEnding = 6;
-const StateEnded = 7;
-const StateFailed = 8;
-const StateWaiting = 9;
+const StatePausing = 2;
+const StatePaused = 3;
+const StateEnding = 4;
+const StateEnded = 5;
+const StateFailed = 6;
+const StateWaiting = 7;
 const States = ['ready', 'running', 'stopping', 'stopped', 'pausing', 'paused', 'ending', 'ended', 'failed', 'waiting'];
 
 var idThreadlet = 0;
@@ -94,14 +91,14 @@ function Threadlet(...args) {
       value: Object.create(null, {
         priority: { value: Math.min(Math.max(Math.abs(priority || DefaultPriority), sched.Priority.High), sched.Priority.Low), enumerable: true },
         timeslice: { value: !isNaN(timeslice) ? Math.max(timeslice, 0) : DefaultTimeslice, enumerable: true },
-        yieldInterval: { value: Math.abs(yieldInterval || DefaultYieldInterval), enumerable: true },
+        yieldInterval: { value: !isNaN(yieldInterval) ? Math.max(yieldInterval, 0) : DefaultYieldInterval, enumerable: true },
       }),
       enumerable: true
     },
     endState: { value: StateReady, writable: true, enumerable: true },
     endValue: { value: undefined, writable: true, enumerable: true }
   });
-  Object.defineProperty(threadlet, 'promises', { value: Promises(threadlet), enumerable: true })
+  Object.defineProperty(threadlet, 'promises', { value: Promises(threadlet), enumerable: true });
   return fPrivate.setObject(threadlet, {
     threadlet,
     runWorker() { runWorker(this) },
@@ -146,12 +143,12 @@ function _ThreadletPrototype() {
     stop: {
       value() {
         const Private = fPrivate(this);
-        const state = Private.state;
-        if (state === StateReady || state === StateEnding || state === StateStopping)
+        if (Private.isStopping || Private.isStopped)
           return this;
-        if (state === StatePaused)
-          this.resume();
-        Private.state = StateStopping;
+        Private.isStopping = true;
+        // Prevent any new tasks being added and stop the thread once the queue is exhausted.
+        Private.threadlet.run(() => { Private.isStopping = false; Private.isStopping = true; });
+        Private.threadlet.run = () => { throw new Error(`micosmo:async:Threadlet:run: Threadlet '${Private.threadlet.name}' has stopped.`) };
         return this;
       },
       enumerable: true
@@ -160,9 +157,10 @@ function _ThreadletPrototype() {
       value() {
         const Private = fPrivate(this);
         const state = Private.state;
-        if (state !== StateRunning)
+        if (state === StatePausing || state === StatePaused)
           return this;
-        Private.state = StatePausing;
+        Private.lastState = state;
+        Private.state = state === StateReady ? StatePaused : StatePausing;
         return this;
       },
       enumerable: true
@@ -172,8 +170,9 @@ function _ThreadletPrototype() {
         const Private = fPrivate(this);
         if (Private.state !== StatePaused)
           return this;
-        Private.state = StateRunning;
-        sched.resumeThreadlet(this, Private);
+        Private.state = Private.lastState;
+        if (Private.state !== StateReady)
+          sched.resumeThreadlet(this, Private);
         return this;
       },
       enumerable: true
@@ -185,12 +184,13 @@ function _ThreadletPrototype() {
     isPausing: { get() { return fPrivate(this).state === StatePausing }, enumerable: true },
     isPaused: { get() { const p = fPrivate(this); return p.state === StatePaused || p.state === StatePausing }, enumerable: true },
     isEnding: { get() { return fPrivate(this).state === StateEnding }, enumerable: true },
-    isStopping: { get() { return fPrivate(this).state === StateStopping }, enumerable: true },
+    isStopping: { get() { return fPrivate(this).isStopping }, enumerable: true },
+    isStopped: { get() { const Private = fPrivate(this); return Private.isStopping || Private.isStopped }, enumerable: true },
     isWaiting: { get() { return fPrivate(this).state === StateWaiting }, enumerable: true },
     hasPaused: { get() { return fPrivate(this).state === StatePaused }, enumerable: true },
-    hasStopped: { get() { return this.endState === StateStopped }, enumerable: true },
+    hasStopped: { get() { return fPrivate(this).isStopped }, enumerable: true },
     hasEnded: { get() { return this.endState === StateEnded }, enumerable: true },
-    hasFinished: { get() { return this.endState === StateEnded || this.endState === StateStopped }, enumerable: true },
+    hasFinished: { get() { return this.endState === StateEnded || this.endState === StateEnding }, enumerable: true },
     hasFailed: { get() { return this.endState === StateFailed }, enumerable: true },
     state: { get() { return States[fPrivate(this).state] }, enumerable: true },
     endState: { get() { return States[this.endState] }, enumerable: true }
@@ -294,10 +294,6 @@ function yieldThreadlet(value) {
     // Promise wait has ended so need to be rescheduled to continue.
     sched.resumeThreadlet(threadlet, this);
     return;
-  case StateStopping:
-    threadlet.endState = StateStopped;
-    threadlet.endValue = undefined;
-    break;
   default:
     threadlet.endState = StateEnded;
     threadlet.endValue = value;

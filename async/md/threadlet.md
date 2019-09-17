@@ -2,7 +2,7 @@
 
 Threadlets are asynchronous containers that serialise tasks. Threadlets tasks can be defined as a generator function where each yield point enables the Threadlet to give up control of the Javascript thread for other threadlets or promise based tasks to be dispatched. Each task function is defined as a *Threadable* asynchronous function which allows the underlying Javascript function or method to be invoked with or without *Threadlet* support. Threadables can yield or return control to other threadables that can represent synchronous style applications that run in an asynchronous manner.
 
-Threadlets are based on promises with threadables akin to Javascript *async* functions, and supports the following features:
+Threadlets are based on promises with threadables akin to Javascript *async* functions, and support the following features:
 
 1. Tasks are independent and each task is assigned a promise when dispatched to a *Threadlet*.
 2. A threadlet can be assign default task settlement handlers that are attached to every task.
@@ -17,138 +17,215 @@ Threadlets are based on promises with threadables akin to Javascript *async* fun
 ### IMPORTING
 
 ```javascript
-const ticker = require('@micosmo/ticker');
+const { Threadlet } = require('@micosmo/async/threadlet');
 ```
 or
 ```javascript
-const { Ticker, startProcess, ... } = require('@micosmo/ticker');
+const { Threadlet, ... } = require('@micosmo/async');
 ```
 
 ### OBJECTS
 
-#### Object: Ticker
+#### Object: Threadlet
+
+Serialises the execution of tasks that are submitted to a *Threadlet*. Each task will only be dispatched when the previous task has completed and all promise handlers have been notified.
 
 ##### COMPOSERS
 
 Export | Description
 -------- | -----------
-Ticker(name) | Returns a new started Ticker object with the specified *name*. The *name* parameter is required.
+Threadlet([name[,&nbsp;controls]]) | Returns a new *Threadlet*. Optional *name* and scheduling *controls* can also be provided. See Object section below on *Threadlet Controls* for more detail.
+Threadlet(controls) | Returns a new *Threadlet* configured with the supplied scheduling *controls*. See Object section below on *Threadlet Controls* for more detail.
 
 ##### METHODS
 
 Method | Description
 ------ | -----------
-assignAsDefaultTo(...processes) | The Ticker is assigned as the default Ticker for the specified processes. The *processes* parameter may be a single array of processes or one or more processes in the parameter list. Returns the Ticker.
-isPaused() | Returns a boolean value indicating if the Ticker has been stopped or paused.
-isRunning() | Returns a boolean value indicating if the Ticker is running.
-pause() | The Ticker is paused and ignores tick cycles. The process queue is suspended. Returns *false* if the Ticker is not running, otherwise *true*.
-start() | The Ticker is started and the process queued is reactivated. Returns *false* if the Ticker is running, otherwise *true*.
-stop() | The Ticker process queue is cleared and the Ticker is paused. Returns *false* if the Ticker was not running, otherwise *true*. 
+run(f,&nbsp;...args) | Adds the task defined by the function *f* and arguments *args* to the *Threadlet's* work queue. Returns a *Promise*. See [PROMISES](#PROMISES) for more detail.
+bindRun(This,&nbsp;f,&nbsp;...args) | As for *run* but will bind *This* to the function *f*.
+bindRun(This,&nbsp;methName,&nbsp;...args) | As for *run* but will bind *This* to *This[methName]*.
+stop() | The *Threadlet* will no longer accept tasks to run and will stop once the task queue is empty. Cannot be restarted. Use *pause* and *resume* otherwise. Returns *Threadlet*.
+pause() | The *Threadlet* is placed in a paused state at the next yield point. Returns *Threadlet*.
+resume() | The *Threadlet* is resumed from a pause. Returns *Threadlet*.
+reject(v) | Passes *v* to the default rejection handler.
 
 ##### PROPERTIES
 
 Property | Description
 -------- | -----------
-isaTicker | Set to *true* indicating the object is a Ticker.
-name | The name of the Ticker.
+isaThreadlet | Set to *true*.
+id | The *id* number associated with the *Threatlet*.
+name | The name of the *Threadlet*. Defaults to *Threadlet:&lt;id&gt;*.
+controls | Scheduling controls. See Object section below on *Threadlet Controls* for more detail.
+promises | *Threadlet* level promise handler services that define promise handlers that are attached to the *promise* associated with each task. See [PROMISES](#PROMISES) for more detail.
+isReady | Returns *true* if the *Threadlet* is ready to run a task.
+isRunning | Returns *true* if the *Threadlet* is running a task.
+isPausing | Returns *true* if the *Threadlet* will pause when the current task reaches a yield point or ends.
+isPaused | Returns *true* if the *Threadlet* is attempting to pause or has paused.
+isEnding | Returns *true* if the *Threadlet* is cleaning up after the current task has finished processing.
+isStopping | Returns *true* if the *Threadlet* has been requested to stop and is waiting for the task queue to be processed.
+isWaiting | Returns *true* if the *Threadlet's* current task is waiting on a promise.
+hasPaused | Returns *true* if the *Threadlet* has paused.
+hasStopped | Returns *true* if the *Threadlet* has stopped.
+hasEnded | Returns *true* if the *Threadlet's* current task has ended.
+hasFinished | Returns *true* if the *Threadlet's* current task is ending or has ended.
+hasFailed | Returns *true* if the *Threadlet's* current task has failed.
+state | Returns a string representation of the *Threadlet's* current state. See [STATES](#STATES) for more detail.
+endState | The end state of the last task. Valid only when the *Threadlet* is not running. See [STATES](#STATES) for more detail.
+endValue | The value returned by the last task. Valid only when the *Threadlet* is not running. Each task that is submitted for execution under a *Threadlet* will be assigned a promise that will provide the return value to assigned promise handlers.
 
-#### Object: Ticker Process
+##### EXAMPLE
+
+```javascript
+  const { Threadlet, Promises, Threadable } = require('@micosmo/async');
+
+  const task = Threadable(function * (thrd) {
+    yield console.log(`Threadlet(${thrd.name}): Started`);
+    yield console.log(`Threadlet(${thrd.name}): Yield point 1`);
+    yield console.log(`Threadlet(${thrd.name}): Yield point 2`);
+    yield console.log(`Threadlet(${thrd.name}): Yield point 3`);
+    yield console.log(`Threadlet(${thrd.name}): Yield point 4`);
+    return thrd.name;
+  });
+
+  const thread1 = Threadlet('Thread1', { priority: Threadlet.Priority.High });
+  thread1
+    .promises
+      .then(v => console.log(`Threadlet(${v}): Has finished.`))
+      .owner.run(task, thread1);
+
+  const thread2 = Threadlet('Thread2', { priority: Threadlet.Priority.Default });
+  const promise2 = thread2.run(task, thread2)
+  Promises(promise2)
+    .then(v => console.log(`Threadlet(${v}): Has finished.`));
+
+  const thread3 = Threadlet('Thread3', { priority: Threadlet.Priority.Low });
+  thread3
+    .promises
+      .then(v => console.log(`Threadlet(${v}): Has finished.`))
+      .owner.run(task, thread3);
+
+  /*
+      Threadlet(Thread1): Started
+      Threadlet(Thread1): Yield point 1
+      Threadlet(Thread2): Started
+      Threadlet(Thread1): Yield point 2
+      Threadlet(Thread1): Yield point 3
+      Threadlet(Thread1): Yield point 4
+      Threadlet(Thread3): Started
+      Threadlet(Thread2): Yield point 1
+      Threadlet(Thread1): Has finished.
+      Threadlet(Thread2): Yield point 2
+      Threadlet(Thread2): Yield point 3
+      Threadlet(Thread3): Yield point 1
+      Threadlet(Thread2): Yield point 4
+      Threadlet(Thread3): Yield point 2
+      Threadlet(Thread2): Has finished.
+      Threadlet(Thread3): Yield point 3
+      Threadlet(Thread3): Yield point 4
+      Threadlet(Thread3): Has finished.
+  */
+```
+
+#### Object: Threatlet Controls
+
+An object that is instantiated when a new *Threadlet* is created. Values can be provided by a *controls* seed object when creating the *Threadlet* or will be defaulted. The *controls* are employed by the *Threadlet Scheduler* to schedule *Threatlet* execution.
+
+##### COMPOSERS
+
+None 
+
+##### METHODS
+
+None
+
+##### PROPERTIES
+
+Property | Description
+-------- | -----------
+priority | The execution priority of the *Threadlet*. See Object section below on *Threatlet Priorities*. Default is *Threadlet.Priority.Default*.
+timeslice | The time allocated to a *Threatlet* for each  processing interval as a number expressed in milliseconds with microsecond precision (where supported). A *Threadlet* maintains control of the Javascript thread until the *timeslice* expires. If a *Threadlet* yields during a timeslice the scheduler will place the *Threadlet* at the end of the schedulers *run* queue. At the end of a *timeslice* a *Threatlet* will be returned to it's priority queued depending on the *yieldInterval*. The *timeslice* may be set to zero which will force the *Threatlet* to be rescheduled at each yield point. Default is 0.
+yieldInterval | The minimum time between processing intervals as an integer expressed in milliseconds. At the end of each *timeslice* the scheduler will place the *Threadlet* into a wait state for the remainder of the *yieldInterval* less the actual processing time. If the *Threadlet's* processing time is greater than the *yieldInterval* then the *Threatlet* is immediately placed on the *Threatlet's* priority queue. If the *yieldInterval* is set to zero then threatlet scheduling will be based on the *timeslice* only. Default is 0.
+
+#### Object: Threatlet Priorities
 
 ##### COMPOSERS
 
 Export | Description
--------- | -----------
-createProcess(onTick[,&nbsp;ticker]) | Returns a new Ticker process that has a default Ticker of *ticker* or *DefaultTicker* if the *ticker* parameter has not been provided. The *onTick* parameter is the process function. All function types are supported. See [RETURN-CODES](#RETURN-CODES) for a list of codes that can be returned from the *onTick* function. The process is not started. 
-createProcess(cfg) | As per above except the Ticker process is defined by a configuration object. See [CONFIGURATION-OBJECT](#CONFIGURATION-OBJECT) for more detail.
-startProcess(onTick[,&nbsp;ticker]) | Returns a new Ticker process that has been started on *ticker* or the *DefaultTicker* if the *ticker* parameter has not been provided. The *onTick* parameter is the process function. All function types are supported. See [RETURN-CODES](#RETURN-CODES) for a list of codes that can be returned from the *onTick* function.
-startProcess(cfg) | As per above except the Ticker process is defined by a configuration object. See [CONFIGURATION-OBJECT](#CONFIGURATION-OBJECT) for more detail.
+Threadlet.Priority | Property that returns a static object of priority values.
 
 ##### METHODS
 
-Method | Description
------- | -----------
-isAttached() | Returns a boolean indicating if the process is attached to a Ticker.
-isPaused() | Returns a boolean indicating if the process is currently paused.
-pause() | The process is paused and ignores tick cycles. Returns the process.
-resume() | The process is resumed from a pause. Returns the process.
-start([ticker]) | The process is attached to the *ticker* or if not provided the processes default Ticker and started. Returns the process.
-stop() | If attached, the process is immediately detached from it's Ticker. If the process has an *onEnd* function then this will be passed a reason code of *stop*. Returns the process. 
+None
 
 ##### PROPERTIES
 
 Property | Description
 -------- | -----------
-isaProcess | Set to *true* indicating the object is a Ticker process.
-name | The name of the Ticker process. If not provided will be set to *&lt;anonymous&gt;*.
+Low | Lowest scheduling priority.
+Default | Default scheduling priority. Threadlets at this priority will be dispatched on average twice as often as low priority threadlets.
+High | Highest scheduling priority. Threadlets at this priority will be dispatched on average twice as often as default priority threadlets.
 
-### EXPORTS
+### PROMISES
 
-#### FUNCTIONS
+The *Threatlet* and [*Worker*](Worker.md) asynchronous containers provide promise handler services defining promise handlers that are automatically attached to the *promise* object that is associated with each task. In addition, a *Threadlet* will attach a default *catch* (rejection handler) to the end of the *promise* chain. However, a *promise* that is associated with a *Threadlet* or *Worker* can be assigned handlers via the normal promise *then*, *catch* and *finally* methods which will extend the *promise* chain beyond the scope of a *Threadler* or *Worker*. This will result in split *promise* chains where we minimally end up with the default rejection handler not being at the end of the main *promise* chain. To avoid this the micosmo async package has a *Promises* object and function that enables the management of a single *promise* chain.
+
+The *Promises* object is based on a standard promises interface that must implement a *then*, *catch* and *finally* methods which are attached to an object's *promises* property. Each promises implementation can be object specific but would be expected to apply the promise handlers to one or more *promise* objects at some point within the object's life cycle. The requirement for a *promises* property ensures that an object, as a resolved value, is not considered to be a *thenable* object when a *Promise* is being resolved. A *Promises* should also have a *owner* property that returns the owner object and a *link* property to return the last *promise* linked in the chain.
+
+Example:
+
+```javascript
+  ...
+  // Apply resolve handler to an object's promise structure
+  object.promises.then(() => { .... });
+  // Will create a resolved promise with 'object' as the value.
+  Promise.resolve(object); 
+  ...
+  // The 'then' method of  'object' that applies resolve handler to an object's promise structure
+  object.then(() => { .... });
+  // Will create a resolved promise BUT will attempt to resolve 'object' as a 'thenable' 
+  // rather than using 'object' as the value
+  Promise.resolve(object); 
+```
+
+#### Object: Promises
+
+The default *Promises* implementation creates a *Promises* object that defers the attachment of promise handlers to a *Promise* or [*LazyPromise*](lazypromise.md)). The *then*, *catch* and *finally* methods add their associated handlers on to a list and the *Promises* owner applies the handlers to a target promise type as required.
+
+##### COMPOSERS
+
+Export | Description
+------ | -----------
+Promises(owner) - Returns a new *Promises* object that is related to the *owner* object.
+
+##### METHODS
+
+Method | Description
+------ | -----------
+then(onFulfilled,&nbsp;onRejected) | Adds new *then* handlers to the *promises* list. Returns the *promises* object.
+catch(onRejected) | Adds a new *catch* hamdler to the *promises* list. Returns the *promises* object.
+finally(onFinally) | Adds a new *finally* hamdler to the *promises* list. Returns the *promises* object.
+apply(promise) | Applies the handler list to the *promise* in the order that they were added. Returns the *promises* object.
+clear([promise]) | Clears the handler list after calling *apply* if a *promise* is provided. Returns the *promises* object.
+
+##### PROPERTIES
+
+Property | Description
+-------- | -----------
+owner | Contains the owner of the *promises* object.
+link | Contains the last *promise* in the chain created by applying the handlers to a *promise* or *lazyPromise*.
+
+##### FUNCTIONS
 
 Function | Description
--------- | -----------
-beater(s,&nbsp;f) | Creates a beating Ticker process step that will dispatch the *f* function at intervals of *s* seconds. A *beater* will continue to beat until either *f* is *done*, the *beater* is wrapped in a *timer*, the Ticker process has been configured with a timeout period or the Ticker process is stopped. An error will occur if *s* is greater than 50 assuming that the beat cycle may be specified in milliseconds. Use *sBeater* instead.
-sBeater(s,&nbsp;f) | Same as *beater* except larger beat cycles can be specified.
-msBeater(ms,&nbsp;f) | Same as *beater* except the beat cycle is expressed in milliseconds.
-iterator(...af), | Creates an iterating Ticker process step that will perform each function in the *af* list in sequence. Each _f_ of *af* must return a *done* response to trigger the next *f* to be dispatched. The *af* parameter may be a single array of functions, or one or more functions in the parameter list.
-looper(count,&nbsp;f) | Creates a looping Ticker process step that will execute the function *f count* times. Note that *count* does not refer to the number of timer tick cycles. The function *f* must return a *done* response to trigger the next loop iteration.
-timer(s,&nbsp;f) | Creates a timer Ticker process step that will execute the function *f* for *s* seconds. The function _f_ can interrupt the timer by returning a *done* reponse. An error will occur if *s* is greater than 50 assuming that the interval may be specified in milliseconds. Use *sTimer* instead.
-sTimer(s,&nbsp;f) | Same as *timer* except larger intervals can be specified.
-msTimer(ms,&nbsp;f) | Same as *timer* except the timer interval is expressed in milliseconds.
-waiter(s[,&nbsp;f]), | Creates a waiting Ticker process step that will wait for *s* seconds and then dispatch the *f* function if provided. An error will occur if *s* is greater than 50 assuming that the interval may be specified in milliseconds. Use *sWaiter* instead.
-sWaiter(s[,&nbsp;f]) | Same as *waiter* except larger intervals can be specified.
-msWaiter(ms[,&nbsp;f]) | Same as *waiter* except the timer interval is expressed in milliseconds.
-
-#### PROPERTIES
-
-Property | Description
--------- | -----------
-DefaultTicker | The default Ticker.
-
-### CONFIGURATION-OBJECT
-
-The *startProcess*/*createProcess* configuration object provides additional input properties to setup a Ticker process.
-
-Property | Description
--------- | -----------
-name | The name to be associated with the process. Optional, defaults to *&lt;anonymous&gt;*.
-onTick | The function or generator function that is to be dispatched on each tick cycle. A function will be passed 4 parameters, *tm* is the current time, *dt* is delta from the last tick cycle, *data* is additional information depending on the call and the *name* of the process. For *looper* *data* is the iteration number, for *timer* *data* is the remaining time and for *beater* *data* is the elapsed time in the same time unit as the specified beat cycle. Generator functions receive a *state* parameter when initialised that contains *tm*, *dt*, *data* and *name* properties. These properties are updated (except *name*) prior to each *next()* call. See [RETURN-CODES](#RETURN-CODES) for a list of return codes. Required.
-onEnd | Standard function that is always dispatched at end of the Ticker process, regardless of how the process is ended. Two parameters are passed, *rsn* is the reason code (*done*, *stop* or *timeout*) for how the process ended, and *process* is the reference to the Ticker process that has ended. Optional.
-msTimeout | Ticker process level timeout period expressed in milliseconds. Optional.
-sTimeout | Ticker process level timeout period expressed in seconds. Optional.
-ticker | Ticker that is to assign as the default Ticker for this process. Optional, defaults to *DefaultTicker*.
-
-### RETURN-CODES
-
-#### GENERATOR FUNCTION
-
-Type | Code | Action
----- | ---- | ------
-return | undefined | The process step has finished.
-yield | undefined | The process step is continuing.
-return | 'done' | The process step has finished.
-yield | 'done' | The process step has finished.
-return | 'stop' | The process is immediately stopped.
-yield | 'stop' | The process is immediately stopped.
-return | *f* | Return code is a function. This current process step is finished and the process has chained to *f*. Invoked on next tick cycle.
-yield | *f* | Return code is a function. The current process step has not finished and function *f* is called. Invoked in this tick cycle.
-
-#### FUNCTION
-
-Code | Action
----- | ------
-undefined | The process step has finished.
-'more' | The process step is continuing.
-'done' | The process step has finished.
-'stop' | The process is immediately stopped.
-*f* | Return code is a function. This current process step is finished and the process has chained to *f*. Invoked on next tick cycle.
-
-#### NOTES
-
-* Functions do not have an option to *call* another process step. A generator function must be used in this case.
-* Functions must return *more* if they are to continue.
-* Functions are generally easier to use than generator functions when using the builtin process step services.
-* When a process step calls another the Ticker process pushs the current process step onto a call stack. This ensures that there is only ever one level of process step connected to the Ticker. The process call stack is popped whenever the current process step is *done*. The Ticker process is finished when the call stack is empty.
+------ | -----------
+Promises(promise) | Returns the *promise* or if the *promise* is related to a *LazyPromise* then as per *Promises(lazyPromise)*.
+Promises(lazyPromise) | Returns *lazyPromise.promises*.
+Promises(promises) | Returns *promises*.
+Promises(object) | Returns *object.promises* of if no *promises* property then returns a new *Promises* with *object* as the owner.
+Promises(v) | For any other value will return *Promise.resolve(v)*. 
+Promises.reject(v[,&nbsp;msg]) | The rejected value *v* is processed by the default rejection handler. The optional *msg* can be displayed in any logged detail. See *setDefaultCatchHandler* in [utils](lib/utils.md) for setting a alternate default rejection handler. Is initially set to *Promises.miReject*.
+Promises.miReject(v[,&nbsp;msg]) | The rejected value *v* is processed by the default micosmo rejection handler. If *v* is an *Error* the error message and stack, if available, are written to *console.error*. If *v* is a *promise* or *thenable* (promisable) then an error message is written to *console.error* and promisable is returned. All other values are written out in a rejection message to *console.error*. Returns *Promise(retValue)* where *retValue* will be a promisable or *undefined*.
 
 ## LICENSE
 

@@ -14,7 +14,7 @@ The *core* package contains helper objects and functions that extend the core Ja
 
 ### [bind](md/bind.md)
 
-Alternate bind function that returns the same bound function for the same inputs.
+Deprecated module, see [function](#function)
 
 ### [character](md/character.md)
 
@@ -26,7 +26,7 @@ Contains value comparison services.
 
 ### [function](md/function.md)
 
-Function related services and utilities.
+Function related services and utilities, including an alternate bind function that returns the same bound function for the same inputs.
 
 ### [method](md/method.md)
 

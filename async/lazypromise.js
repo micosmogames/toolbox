@@ -13,16 +13,12 @@
 *  Note that Then, Catch & Finally calls to the LazyPromise update the underlying promise that is held by the LazyPromise.
 *  This will not occur if then, catch & finally calls are applied to LazyPromise.promise directly.
 */
-const core = require('@micosmo/core');
-const fPrivate = core.newPrivateSpace();
 const { Promises } = require('./lib/utils');
 
 const LazyPromisePrototype = _LazyPromisePrototype();
-const SemaphorePrototype = _SemaphorePrototype();
 
 module.exports = {
   LazyPromise,
-  Semaphore
 };
 
 // LazyPromise
@@ -91,7 +87,8 @@ function _LazyPromisePrototype() {
           then: function (onResolved, onRejected) { This.Then(onResolved, onRejected); return this },
           catch: function (onRejected) { This.Catch(onRejected); return this },
           finally: function (onFinally) { This.Finally(onFinally); return this },
-          owner: This
+          owner: This,
+          get link() { return This.promise }
         });
       },
       enumerable: true
@@ -106,69 +103,4 @@ function assignPromise(lazyPromise, promise) {
   lazyPromise.promise = promise;
   promise.lazyPromise = lazyPromise;
   return lazyPromise;
-}
-
-// Semaphore implementation based on LazyPromises
-
-// Allow return values
-function Semaphore(signals) {
-  var signalValues = [];
-  if (signals !== undefined) {
-    if (typeof signals === 'number' && signals > 0)
-      signalValues.length = signals;
-    else if (Array.isArray(signals))
-      signalValues = signals.slice(0);
-    else
-      throw new Error('micosmo:async:Semaphore: Initial signals must be a number > 0 or an array of signal values');
-  }
-  const sem = Object.create(SemaphorePrototype);
-  return fPrivate.setObject(sem, {
-    sem,
-    signalValues,
-    waiters: [],
-  });
-};
-
-function _SemaphorePrototype() {
-  return Object.create(Object, {
-    isaSemaphore: { value: true, enumerable: true },
-    signal: {
-      value(v) {
-        const Private = fPrivate(this);
-        if (Private.waiters.length > 0) {
-          const waiter = Private.waiters.shift();
-          if (waiter.timer)
-            clearTimeout(waiter.timer);
-          waiter.lazyPromise.resolve(v);
-        } else
-          Private.signalValues.push(v);
-        return this;
-      },
-      enumerable: true
-    },
-    wait: {
-      value(ms, timeoutValue) {
-        const Private = fPrivate(this);
-        if (Private.signalValues.length > 0)
-          return LazyPromise.resolve(Private.signalValues.shift()).promise;
-        const lp = LazyPromise();
-        var timer;
-        if (ms !== undefined && typeof ms === 'number' && ms > 0)
-          timer = setTimeout(() => { removeWaiter(Private, lp); lp.resolve(timeoutValue) }, ms);
-        Private.waiters.push({ lazyPromise: lp, timer });
-        return lp.promise
-      },
-      enumerable: true
-    }
-  });
-}
-
-function removeWaiter(Private, lp) {
-  const waiters = Private.waiters;
-  for (let i = 0; i < waiters.length; i++) {
-    if (waiters[i].lazyPromise !== lp)
-      continue;
-    waiters.splice(i, 1);
-    return
-  }
 }
