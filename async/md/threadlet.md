@@ -111,13 +111,13 @@ endValue | The value returned by the last task. Valid only when the *Threadlet* 
       Threadlet(Thread2): Started
       Threadlet(Thread1): Yield point 2
       Threadlet(Thread1): Yield point 3
-      Threadlet(Thread1): Yield point 4
       Threadlet(Thread3): Started
+      Threadlet(Thread1): Yield point 4
       Threadlet(Thread2): Yield point 1
-      Threadlet(Thread1): Has finished.
       Threadlet(Thread2): Yield point 2
-      Threadlet(Thread2): Yield point 3
+      Threadlet(Thread1): Has finished.
       Threadlet(Thread3): Yield point 1
+      Threadlet(Thread2): Yield point 3
       Threadlet(Thread2): Yield point 4
       Threadlet(Thread3): Yield point 2
       Threadlet(Thread2): Has finished.

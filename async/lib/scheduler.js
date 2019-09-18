@@ -60,23 +60,11 @@ function resumeThreadlet(threadlet, Private) {
 function queueThreadlet(threadlet, Private) {
   const priority = threadlet.controls.priority;
   addToPriorityQueue(priority, { threadlet, Private });
-  //  if (schedCycle > High && schedCycle >= priority && priorityQueues[priority].length === 1)
-  //    schedCycle = priority - 1; // Prevent this threadlet from being scheduled immediately if there are higher priority threadlets
   Private.queueId = threadlet.controls.priority;
   nThreads++;
 }
 
 function addToPriorityQueue(priority, thrdDetails) {
-/*
-  if (priority === High)
-    priorityQueues[High].push(thrdDetails);
-  else {
-    let i = priority - 1;
-    for (; i > 0; i--)
-      priorityQueues[priority].push(undefined); // Insert a gap in the queue to slow down this threadlet
-    priorityQueues[priority].push(thrdDetails);
-  }
-  */
   priorityQueues[priority].push(thrdDetails);
 }
 
@@ -103,7 +91,7 @@ function updatePriorityQueues() {
     break;
   }
   // Now shuffle the remaining queues based on our current cycle
-  for (; i <= schedCycle; i++) {
+  for (i++; i <= schedCycle; i++) {
     if (priorityQueues[i].length === 0)
       continue;
     priorityQueues[i - 1].push(priorityQueues[i].shift());
