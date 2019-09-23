@@ -3,6 +3,8 @@
  *
  * Fucntion related services and utilities
  */
+"use strict"
+
 const BoundFunctions = new WeakMap();
 
 const ProtGenFn = Object.getPrototypeOf(function * () { });

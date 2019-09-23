@@ -92,11 +92,11 @@ None
 
 ### OBJECTS
 
-#### Object: Ticker
+#### Ticker
 
-See [Object: Ticker](./ticker.md#OBJECTS).
+See [Ticker](./ticker.md#Ticker).
 
-#### Object: Ticker Process
+#### Ticker Process
 
 ##### COMPOSERS
 
@@ -109,7 +109,7 @@ startProcess(cfg) | As per above except the Ticker process is defined by a confi
 
 ##### METHODS & PROPERTIES
 
-See [Object: Ticker Process](./ticker.md#OBJECTS).
+See [Ticker-Process](./ticker.md#Ticker-Process).
 
 ### EXPORTS
 

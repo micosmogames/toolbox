@@ -11,11 +11,11 @@
 *                          Each return value is a potential parameter of next step function.
 *                          Last return value is resolved value of process.
 */
+"use strict"
 
 const core = require('@micosmo/core');
 const fPrivate = core.newPrivateSpace();
-const { LazyPromise } = require('./lazypromise');
-const { Promises } = require('./lib/utils');
+const { LazyPromise, Promises, Contract } = require('./promise');
 
 const StateReady = 0;
 const StateRunning = 1;
@@ -37,10 +37,9 @@ module.exports = {
 
 function Worker() {
   const worker = Object.create(WorkerPrototype);
-  Object.defineProperty(worker, 'promises', { value: Promises(worker), enumerable: true })
+  Object.defineProperty(worker, 'contract', { value: Contract(worker, () => nextTask(fPrivate(worker))), enumerable: true })
   return fPrivate.setObject(worker, {
     worker,
-    lastLazyPromise: LazyPromise.resolve(),
     state: StateReady,
     queue: [],
   });
@@ -79,12 +78,8 @@ function newTask(worker, f, args) {
     throw new Error('micosmo:async:worker:newTask: Missing function');
   if (Private.state === StateStopped)
     throw new Error('micosmo:async:worker:newTask: Worker has been stopped');
-  const lazyPromise = LazyPromise();
-  worker.promises.apply(lazyPromise); // Attach all the worker level handlers
-  const lastLazyPromise = Private.lastLazyPromise;
-  const fRunSync = () => run(Private, lazyPromise, f, args);
-  Private.queue.push(() => { Private.lazyPromise = lazyPromise; lastLazyPromise.Then(fRunSync, fRunSync) });
-  Private.lastLazyPromise = lazyPromise;
+  const lazyPromise = worker.contract.seal(); // Will return a LazyPromise
+  Private.queue.push(() => { Private.lazyPromise = lazyPromise; run(Private, lazyPromise, f, args) });
   nextTask(Private);
   return lazyPromise;
 }
@@ -92,23 +87,25 @@ function newTask(worker, f, args) {
 function nextTask(Private) {
   if (Private.state === StateReady && Private.queue.length > 0) {
     Private.state = StatePending;
-    Private.queue[0]();
+    Private.queue.shift()();
   }
 }
 
 function run(Private, lazyPromise, f, args) {
-  Private.queue.shift(); // Pop me of the queue
   Private.state = StateRunning;
-  new Promise(resolve => resolve(f(...args))).then(v => {
-    lazyPromise.resolve(v);
-    if (Private.state !== StatePaused) {
-      Private.state = StateReady;
-      nextTask(Private);
-    }
-  })
+  Promise.resolve('running')
+    .then(() => {
+      try {
+        lazyPromise.resolve(f(...args));
+      } catch (err) {
+        lazyPromise.reject(err);
+      }
+      if (Private.state !== StatePaused)
+        Private.state = StateReady;
+    })
 }
 
-// Common prototype for Worker.group and Worker.process
+// Common prototype for Worker.Group and Worker.Process
 // For the 'tasks' method each task specification is an array of parameters that would be normally passed to the 'run' method.
 // A task that calls a method must be pre-bound.
 
@@ -134,8 +131,7 @@ const CommonPrototype = Object.create(Object, {
       const Private = fPrivate(this);
       if (Private.state !== StateReady)
         return this;
-      const lazyPromise = Private.lazyPromise;
-      this.promises.clear(lazyPromise); // Attach and clear all the Group level handlers
+      const lazyPromise = Private.lazyPromise = this.contract.seal(); // Will create a LazyPromise
       Private.queue.forEach(task => this.runTask(Private, task));
       Private.queue = undefined;
       Private.state = StateRunning;
@@ -151,16 +147,15 @@ const CommonPrototype = Object.create(Object, {
       const lazyPromise = Private.lazyPromise;
       if (Private.state === StateReady)
         this.start();
-      else
-        this.promises.apply(lazyPromise); // Attach any additional Group level handlers
-      Private.state = StateClosed;
-      if (Private.state === StateFailed)
+      else if (Private.state === StateFailed)
         lazyPromise.reject(Private.failedValue);
+      Private.state = StateClosed;
       return this.closingPromise(Private);
     },
     enumerable: true
   },
   reject: { value(v) { return Promises.reject(v, this.name) }, enumerable: true },
+  state: { get() { return States[fPrivate(this).state] }, enumerable: true }
 })
 
 function addTask(workerType, f, args) {
@@ -170,7 +165,7 @@ function addTask(workerType, f, args) {
   return workerType;
 }
 
-function syncFailed(workerType, v) {
+function workerFailed(workerType, v) {
   const Private = fPrivate(workerType);
   if (Private.state === StateRunning)
     Private.failedValue = v;
@@ -179,9 +174,9 @@ function syncFailed(workerType, v) {
   Private.state = StateFailed;
 }
 
-function setSyncPrivateSpace(workerType, additionalProperties) {
+function setWorkerPrivateSpace(workerType, additionalProperties) {
   const privateObject = {
-    worker: Worker().promises.catch(v => syncFailed(workerType, v)).owner,
+    worker: Worker().contract.whenRejected.catch(v => workerFailed(workerType, v)).parent,
     state: StateReady,
     lazyPromise: LazyPromise(),
     queue: [],
@@ -192,17 +187,17 @@ function setSyncPrivateSpace(workerType, additionalProperties) {
 
 // Worker.group - Manage tasks in a group.
 
-const groupPrototype = _groupPrototype();
+const GroupPrototype = _GroupPrototype();
 Worker.Group = function () {
-  const group = Object.create(groupPrototype);
-  Object.defineProperty(group, 'promises', { value: Promises(group), enumerable: true })
-  return setSyncPrivateSpace(group, {
+  const group = Object.create(GroupPrototype);
+  Object.defineProperty(group, 'contract', { value: Contract(group), enumerable: true })
+  return setWorkerPrivateSpace(group, {
     group,
     promises: [],
   });
 }
 
-function _groupPrototype() {
+function _GroupPrototype() {
   return Object.create(CommonPrototype, {
     isaWorkerGroup: { value: true, enumerable: true },
     makeTask: { value(Private, f, args) { return makeGroupTask(Private, f, args) }, enumerable: true },
@@ -228,17 +223,17 @@ function makeGroupTask(Private, f, args) {
   return { f, args };
 }
 
-const processPrototype = _processPrototype();
+const ProcessPrototype = _ProcessPrototype();
 Worker.Process = function () {
-  const process = Object.create(processPrototype);
-  Object.defineProperty(process, 'promises', { value: Promises(process), enumerable: true })
-  return setSyncPrivateSpace(process, {
+  const process = Object.create(ProcessPrototype);
+  Object.defineProperty(process, 'contract', { value: Contract(process), enumerable: true })
+  return setWorkerPrivateSpace(process, {
     process,
     lastTaskPromise: LazyPromise.resolve(),
     lastValue: undefined,
   });
 }
-function _processPrototype() {
+function _ProcessPrototype() {
   return Object.create(CommonPrototype, {
     isaWorkerProcess: { value: true, enumerable: true },
     steps: { value(...steps) { return this.tasks(...steps) }, enumerable: true },
@@ -260,7 +255,7 @@ function makeProcessTask(Private, f, args) {
 
 function runProcessTask (Private, task) {
   (Private.lastTaskPromise = Private.worker.run(() => task.f(...task.stepArg(Private.lastValue, task.args))))
-    .lazyPromise.Then(v => { Private.lastValue = v });
+    .sealedContract.promises.then(v => { Private.lastValue = v });
 }
 
 function _StepArg() {

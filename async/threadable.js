@@ -20,6 +20,8 @@
 *                                     returns v or [v, ...args] is returned.
 *     . Threadable.bindWith(This, v, ...args) - As above but binds This if v is a function.
 */
+"use strict"
+
 const { isaGeneratorFunction, isaGenerator } = require('@micosmo/core/function');
 
 module.exports = {
@@ -38,14 +40,17 @@ function Threadable(f) {
   if (isaGeneratorFunction(f))
     fThreadable = makeThreadbleDriver(f);
   else {
-    fThreadable = f;
+    const f1 = f; // Save f for the wrapper below.
+    fThreadable = (...args) => {
+      try { const v = f1.call(this, ...args); return v instanceof Promise ? v : Promise.resolve(v) } catch (err) { Promise.reject(err) }
+    };
     f = makeGeneratorFunction(f);
   }
   Object.defineProperties(fThreadable, {
     isaThreadable: { value: true, enumerable: true },
     fGenerator: { value: f, enumerable: true },
     with: { value(...args) { return setThreadable(f(...args)) }, enumerable: true },
-    bindWith: { value(This, ...args) { return setThreadable(f.bind(This)(...args)) }, enumerable: true }
+    bindWith: { value(This, ...args) { return setThreadable(f.call(This, ...args)) }, enumerable: true }
   });
   return fThreadable;
 };
@@ -57,7 +62,7 @@ Threadable.with = function(v, ...args) {
 
 Threadable.bindWith = function (This, v, ...args) {
   const gf = asGeneratorFunction(v);
-  return setThreadable(gf ? gf.bind(This)(...args) : v);
+  return setThreadable(gf ? gf.call(This, ...args) : v);
 }
 
 function asGeneratorFunction (v) {

@@ -12,7 +12,7 @@ const sb = StringBuilder();
 ```
 ### OBJECTS
 
-#### Object: StringBuilder
+#### StringBuilder
 
 ##### COMPOSERS
 

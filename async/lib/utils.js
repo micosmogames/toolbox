@@ -5,15 +5,14 @@
  */
 "use strict";
 
-const common = require('./common');
-
 module.exports = {
   isaThreadable,
   isPromisable,
   asPromise,
+  isaSealedContract,
+  isaProxyPromise,
+  isanAsyncPromise,
   isaLazyPromise,
-  setDefaultCatchHandler,
-  Promises: common.Promises
 };
 
 function isaThreadable(f) {
@@ -26,16 +25,21 @@ function isPromisable(v) {
 }
 
 function asPromise(v) {
-  return v instanceof Promise ? v : (typeof v === 'object' && v.isaLazyPromise) ? v.promise : Promise.resolve(v);
+  return v instanceof Promise ? v : (typeof v === 'object' && v.isaSealedContract) ? v.promise : Promise.resolve(v);
+}
+
+function isaSealedContract(v) {
+  return typeof v === 'object' && v.isaSealedContract;
+}
+
+function isaProxyPromise(v) {
+  return typeof v === 'object' && v.isaProxyPromise;
+}
+
+function isanAsyncPromise(v) {
+  return typeof v === 'object' && v.isanAsyncPromise;
 }
 
 function isaLazyPromise(v) {
   return typeof v === 'object' && v.isaLazyPromise;
-}
-
-function setDefaultCatchHandler(fReject) {
-  if (typeof fReject !== 'function')
-    throw new Error(`micosmo:async:setDefaultCatchHandler: Default catch handler must be a Function`);
-  common.setDefaultCatchHandler(fReject);
-  return fReject;
 }

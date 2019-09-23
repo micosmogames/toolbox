@@ -9,8 +9,10 @@
 *
 *  NOTE: A LazyPromise is only created if there is no pending signal when 'wait' is called.
 */
+"use strict"
+
 const { newPrivateSpace, method, declareMethods } = require('@micosmo/core');
-const { LazyPromise } = require('./lazypromise');
+const { LazyPromise } = require('./promise');
 const fPrivate = newPrivateSpace();
 
 declareMethods(runCS);
@@ -99,7 +101,7 @@ function _CriticalSectionPrototype() {
   return Object.create(Object, {
     isaCriticalSection: { value: true, enumerable: true },
     start: { value() { return fPrivate(this).sem.wait() }, enumerable: true },
-    end: { value() { return fPrivate(this).sem.signal() }, enumerable: true },
+    end: { value() { fPrivate(this).sem.signal() }, enumerable: true },
     run: { value: method(runCS), enumerable: true },
     bindRun: { value(This, f, ...args) { return this.run((typeof f === 'string' ? This[f] : f).bind(This), args) }, enumerable: true },
   });

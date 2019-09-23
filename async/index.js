@@ -8,7 +8,7 @@
 Object.assign(module.exports,
   require('./threadlet'),
   require('./threadable'),
-  require('./lazyPromise'),
+  require('./promise'),
   require('./worker'),
   require('./semaphore'),
   require('./lib/utils')

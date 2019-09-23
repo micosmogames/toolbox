@@ -3,7 +3,7 @@
 *
 *  Implements a pseudo threading architecture for Javascript based on promises & generator functions.
 *
-*  The Threadlet worker manages a stack of generators (instances not functions). Yield statements
+*  The Threadlet driver manages a stack of generators (instances not functions). Yield statements
 *  allow the Threadlet to yield control to schedule other threadlets, promises and async functions to
 *  be executed. Threadlets can be assigned a priority, timeslice that defines how long the
 *  Threadlet can run without giving up control of the processor and a yield interval that
@@ -35,23 +35,19 @@
 *  Threadlet behaviour is similar to an async function except that a Threadlet is a container that
 *  has a queue and dispatch cycle, has a prioritised scheduler across threadlets as well
 *  threadlet level processing controls. Threadlets will also inject a default reject handler for
-*  exec calls. Threadlet level Then, Catch and Finally methods define promise handlers that are
-*  applied to every Threadlet task that is queued.
-*
-*  Note: The queued tasks will run in sequence however the promise handlers attached to a task
-*        will only be guaranteed to be fired before the next task is started if the handlers are
-*        attached using threadlet.Then(promise, ...), threadlet.Catch(promise, ...) and
-*        threadlet.Finally(promise, ...)
+*  exec calls. Threadlet 'contract' whenSealed, whenResolved, whenRejected methods define promise handlers
+*  that are applied to every Threadlet task that is queued.
 */
+"use strict"
 
 const sched = require('./lib/scheduler');
 const { declareMethods, method, newPrivateSpace } = require('@micosmo/core');
 const fPrivate = newPrivateSpace();
 const { Threadable } = require('./threadable');
-const { LazyPromise } = require('./lazypromise');
-const { isaThreadable, isPromisable, Promises } = require('./lib/utils');
+const { Promises, Contract } = require('./promise');
+const { isaThreadable, isPromisable } = require('./lib/utils');
 
-declareMethods(worker, yieldThreadlet, threadletFailed);
+declareMethods(driver, yieldThreadlet, threadletFailed);
 
 const ThreadletPrototype = _ThreadletPrototype();
 const DefaultPriority = sched.Priority.Default;
@@ -66,13 +62,13 @@ const StateEnding = 4;
 const StateEnded = 5;
 const StateFailed = 6;
 const StateWaiting = 7;
-const States = ['ready', 'running', 'stopping', 'stopped', 'pausing', 'paused', 'ending', 'ended', 'failed', 'waiting'];
+const StateStopped = 8;
+const States = ['ready', 'running', 'pausing', 'paused', 'ending', 'ended', 'failed', 'waiting', 'stopped'];
 
 var idThreadlet = 0;
 
 module.exports = {
-  Threadlet,
-  Promises
+  Threadlet
 };
 
 // Threadlet
@@ -95,23 +91,25 @@ function Threadlet(...args) {
       }),
       enumerable: true
     },
-    endState: { value: StateReady, writable: true, enumerable: true },
     endValue: { value: undefined, writable: true, enumerable: true }
   });
-  Object.defineProperty(threadlet, 'promises', { value: Promises(threadlet), enumerable: true });
-  return fPrivate.setObject(threadlet, {
+  const Private = {
     threadlet,
-    runWorker() { runWorker(this) },
-    lastLazyPromise: LazyPromise.resolve(),
     lazyPromise: undefined,
     nextParm: undefined,
+    endState: StateReady,
     state: StateReady,
     waitState: StateReady,
     stack: [],
     queue: [],
     workStartTime: undefined,
     workTimer: 0,
-  });
+  };
+  Private.driver = driver.bind(Private);
+  Private.yieldThreadlet = yieldThreadlet.bind(Private);
+  Private.threadletFailed = threadletFailed.bind(Private);
+  Object.defineProperty(threadlet, 'contract', { value: Contract(threadlet, () => nextTask(Private)), enumerable: true });
+  return fPrivate.setObject(threadlet, Private);
 };
 
 Threadlet.Priority = sched.Priority;
@@ -147,7 +145,7 @@ function _ThreadletPrototype() {
           return this;
         Private.isStopping = true;
         // Prevent any new tasks being added and stop the thread once the queue is exhausted.
-        Private.threadlet.run(() => { Private.isStopping = false; Private.isStopping = true; });
+        Private.threadlet.run(() => { Private.isStopping = false; Private.isStopped = true; Private.state = StateStopped });
         Private.threadlet.run = () => { throw new Error(`micosmo:async:Threadlet:run: Threadlet '${Private.threadlet.name}' has stopped.`) };
         return this;
       },
@@ -185,68 +183,54 @@ function _ThreadletPrototype() {
     isPaused: { get() { const p = fPrivate(this); return p.state === StatePaused || p.state === StatePausing }, enumerable: true },
     isEnding: { get() { return fPrivate(this).state === StateEnding }, enumerable: true },
     isStopping: { get() { return fPrivate(this).isStopping }, enumerable: true },
-    isStopped: { get() { const Private = fPrivate(this); return Private.isStopping || Private.isStopped }, enumerable: true },
+    isStopped: { get() { const p = fPrivate(this); return p.isStopping || p.isStopped }, enumerable: true },
     isWaiting: { get() { return fPrivate(this).state === StateWaiting }, enumerable: true },
     hasPaused: { get() { return fPrivate(this).state === StatePaused }, enumerable: true },
     hasStopped: { get() { return fPrivate(this).isStopped }, enumerable: true },
-    hasEnded: { get() { return this.endState === StateEnded }, enumerable: true },
-    hasFinished: { get() { return this.endState === StateEnded || this.endState === StateEnding }, enumerable: true },
-    hasFailed: { get() { return this.endState === StateFailed }, enumerable: true },
+    hasEnded: { get() { return fPrivate(this).endState === StateEnded }, enumerable: true },
+    hasFinished: { get() { const p = fPrivate(this); return p.endState === StateEnded || p.endState === StateEnding }, enumerable: true },
+    hasFailed: { get() { return fPrivate(this).endState === StateFailed }, enumerable: true },
     state: { get() { return States[fPrivate(this).state] }, enumerable: true },
-    endState: { get() { return States[this.endState] }, enumerable: true }
+    endState: { get() { return States[fPrivate(this).endState] }, enumerable: true }
   });
   return prot;
 }
 
 function newTask(threadlet, f, args) {
   const Private = fPrivate(threadlet);
-  const lazyPromise = LazyPromise();
-  threadlet.promises.apply(lazyPromise); // Attach all the Threadlet level handlers
-  const lastLazyPromise = Private.lastLazyPromise;
-  const fRunThreadlet = () => runThreadlet(threadlet, Private, f, args);
-  const fRun = () => { Private.lazyPromise = lazyPromise; lastLazyPromise.Then(fRunThreadlet, fRunThreadlet) };
-  Private.queue.push(fRun);
-  if (Private.state === StateReady && Private.queue.length <= 1)
-    fRun();
-  Private.lastLazyPromise = lazyPromise;
+  const lazyPromise = threadlet.contract.seal(); // Will return a LazyPromise
+  Private.queue.push(() => { Private.lazyPromise = lazyPromise; runThreadlet(threadlet, Private, f, args) });
+  nextTask(Private);
   return lazyPromise;
 }
 
+function nextTask(Private) {
+  if (Private.state === StateReady && Private.queue.length > 0)
+    Private.queue.shift()();
+}
+
 function runThreadlet(threadlet, Private, f, args) {
-  Private.queue.shift(); // Pop me of the queue
   Private.step = Threadable.with(f, ...args);
-  Private.state = threadlet.endState = StateRunning;
+  Private.state = Private.endState = StateRunning;
   sched.threadletStarted(threadlet, Private);
   return threadlet;
 }
 
-function runWorker(Private) {
-  new Promise(worker.bind(Private)).then(yieldThreadlet.bind(Private), threadletFailed.bind(Private));
-}
-
-// Note: The worker is bound to the private space of the Threadlet.
-method(worker);
-function worker(resolve, reject) {
+// Scheduler will invoke the driver wrapped up in a Promise
+// Note: The driver is bound to the private space of the Threadlet.
+method(driver);
+function driver() {
   const threadlet = this.threadlet;
   if (this.state === StateWaiting) {
     // Have been rescheduled after wait state so restore state
     this.state = this.waitState; this.waitState = undefined;
   }
-  if (this.state !== StateRunning) {
-    // Let the yielder deal with this.
-    resolve(this.nextParm);
-    return;
-  }
+  if (this.state !== StateRunning)
+    return this.nextParm; // Let the yield deal with this
   // Manage the generator stack for this threadlet instance.
   var value = this.nextParm;
   for (;;) {
-    var resp;
-    try {
-      resp = this.step.next(value);
-    } catch (vCatch) {
-      reject(vCatch);
-      return;
-    }
+    var resp = this.step.next(value);
     value = resp.value;
     if (resp.done) {
     // From return statement
@@ -270,10 +254,9 @@ function worker(resolve, reject) {
       // Threadlet won't yield until the Promise has been resolved
       this.waitState = this.state; this.state = StateWaiting;
       sched.threadletWaitingOnPromise(threadlet, this);
-    } else if (!sched.threadletMustYield(threadlet, this) && !resp.done)
+    } else if (!sched.threadletMustYield(threadlet, this) && !resp.done && this.state !== StatePausing)
       continue;
-    resolve(value);
-    return;
+    return value;
   }
 };
 
@@ -295,7 +278,7 @@ function yieldThreadlet(value) {
     sched.resumeThreadlet(threadlet, this);
     return;
   default:
-    threadlet.endState = StateEnded;
+    this.endState = StateEnded;
     threadlet.endValue = value;
     break;
   }
@@ -303,8 +286,6 @@ function yieldThreadlet(value) {
   this.stack = [];
   this.lazyPromise.resolve(value);
   sched.threadletEnded(threadlet, this);
-  if (this.queue.length > 0)
-    this.queue[0](); // Run the request that is queued up
 };
 
 // Note: The rejector is bound to the private space of the Threadlet.
@@ -313,12 +294,10 @@ function threadletFailed(value) {
   const threadlet = this.threadlet;
   this.state = StateReady;
   this.stack = [];
-  threadlet.endState = StateFailed;
+  this.endState = StateFailed;
   threadlet.endValue = value;
   this.lazyPromise.reject(value);
   sched.threadletFailed(threadlet, this);
-  if (this.queue.length > 0)
-    this.queue[0](); // Run the request that is queued up
 };
 
 // Threadable support services

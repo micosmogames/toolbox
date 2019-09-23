@@ -16,7 +16,7 @@ const { Ticker, startProcess, ... } = require('@micosmo/ticker');
 
 ### OBJECTS
 
-#### Object: Ticker
+#### Ticker
 
 ##### COMPOSERS
 
@@ -42,7 +42,7 @@ Property | Description
 isaTicker | Set to *true* indicating the object is a Ticker.
 name | The name of the Ticker.
 
-#### Object: Ticker Process
+#### Ticker-Process
 
 ##### COMPOSERS
 

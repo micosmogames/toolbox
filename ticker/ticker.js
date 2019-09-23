@@ -3,6 +3,7 @@
 *  Provide services to describe and manage ticker based processes.
 *  The basic ticker process element is based on a generator function.
 */
+"use strict"
 
 const { declareMethods, method } = require('@micosmo/core/method');
 const { isaGeneratorFunction } = require('@micosmo/core/function');

@@ -5,7 +5,7 @@ Threadlets are asynchronous containers that serialise tasks. Threadlets tasks ca
 Threadlets are based on promises with threadables akin to Javascript *async* functions, and support the following features:
 
 1. Tasks are independent and each task is assigned a promise when dispatched to a *Threadlet*.
-2. A threadlet can be assign default task settlement handlers that are attached to every task.
+2. A threadlet has a [*Contract*](promise.md#Contract) that defines threadlet specific promise settlement handlers that are assigned during various stages of tasks's life cycle.
 3. All tasks are assigned a default *catch* handler.
 4. Threadlet scheduling is handled by a separate scheduler. Threadlets can be configured with a *priority*, *timeslice* and *yieldInterval* that guides the scheduler dispatching decisions.
 5. Threadlets can abstract away the handling of promises and async functions potentially helping to simplify the structure of asynchronous applications.
@@ -26,7 +26,7 @@ const { Threadlet, ... } = require('@micosmo/async');
 
 ### OBJECTS
 
-#### Object: Threadlet
+#### Threadlet
 
 Serialises the execution of tasks that are submitted to a *Threadlet*. Each task will only be dispatched when the previous task has completed and all promise handlers have been notified.
 
@@ -41,7 +41,7 @@ Threadlet(controls) | Returns a new *Threadlet* configured with the supplied sch
 
 Method | Description
 ------ | -----------
-run(f,&nbsp;...args) | Adds the task defined by the function *f* and arguments *args* to the *Threadlet's* work queue. Returns a *Promise*. See [PROMISES](#PROMISES) for more detail.
+run(f,&nbsp;...args) | Adds the task defined by the function *f* and arguments *args* to the *Threadlet's* work queue. Returns a *Promise*. See [Promises](promise.md#Promises) for more detail.
 bindRun(This,&nbsp;f,&nbsp;...args) | As for *run* but will bind *This* to the function *f*.
 bindRun(This,&nbsp;methName,&nbsp;...args) | As for *run* but will bind *This* to *This[methName]*.
 stop() | The *Threadlet* will no longer accept tasks to run and will stop once the task queue is empty. Cannot be restarted. Use *pause* and *resume* otherwise. Returns *Threadlet*.
@@ -57,7 +57,7 @@ isaThreadlet | Set to *true*.
 id | The *id* number associated with the *Threatlet*.
 name | The name of the *Threadlet*. Defaults to *Threadlet:&lt;id&gt;*.
 controls | Scheduling controls. See Object section below on *Threadlet Controls* for more detail.
-promises | *Threadlet* level promise handler services that define promise handlers that are attached to the *promise* associated with each task. See [PROMISES](#PROMISES) for more detail.
+contract | Contract defining settlement handlers for each task. See [Contract](promise.md#Contract) for more detail.
 isReady | Returns *true* if the *Threadlet* is ready to run a task.
 isRunning | Returns *true* if the *Threadlet* is running a task.
 isPausing | Returns *true* if the *Threadlet* will pause when the current task reaches a yield point or ends.
@@ -90,9 +90,9 @@ endValue | The value returned by the last task. Valid only when the *Threadlet* 
 
   const thread1 = Threadlet('Thread1', { priority: Threadlet.Priority.High });
   thread1
-    .promises
+    .contract.whenResolved
       .then(v => console.log(`Threadlet(${v}): Has finished.`))
-      .owner.run(task, thread1);
+      .parent.run(task, thread1);
 
   const thread2 = Threadlet('Thread2', { priority: Threadlet.Priority.Default });
   const promise2 = thread2.run(task, thread2)
@@ -101,9 +101,9 @@ endValue | The value returned by the last task. Valid only when the *Threadlet* 
 
   const thread3 = Threadlet('Thread3', { priority: Threadlet.Priority.Low });
   thread3
-    .promises
+    .contract.whenResolved
       .then(v => console.log(`Threadlet(${v}): Has finished.`))
-      .owner.run(task, thread3);
+      .parent.run(task, thread3);
 
   /*
       Threadlet(Thread1): Started
@@ -127,7 +127,7 @@ endValue | The value returned by the last task. Valid only when the *Threadlet* 
   */
 ```
 
-#### Object: Threatlet Controls
+#### Threatlet Controls
 
 An object that is instantiated when a new *Threadlet* is created. Values can be provided by a *controls* seed object when creating the *Threadlet* or will be defaulted. The *controls* are employed by the *Threadlet Scheduler* to schedule *Threatlet* execution.
 
@@ -147,11 +147,12 @@ priority | The execution priority of the *Threadlet*. See Object section below o
 timeslice | The time allocated to a *Threatlet* for each  processing interval as a number expressed in milliseconds with microsecond precision (where supported). A *Threadlet* maintains control of the Javascript thread until the *timeslice* expires. If a *Threadlet* yields during a timeslice the scheduler will place the *Threadlet* at the end of the schedulers *run* queue. At the end of a *timeslice* a *Threatlet* will be returned to it's priority queued depending on the *yieldInterval*. The *timeslice* may be set to zero which will force the *Threatlet* to be rescheduled at each yield point. Default is 0.
 yieldInterval | The minimum time between processing intervals as an integer expressed in milliseconds. At the end of each *timeslice* the scheduler will place the *Threadlet* into a wait state for the remainder of the *yieldInterval* less the actual processing time. If the *Threadlet's* processing time is greater than the *yieldInterval* then the *Threatlet* is immediately placed on the *Threatlet's* priority queue. If the *yieldInterval* is set to zero then threatlet scheduling will be based on the *timeslice* only. Default is 0.
 
-#### Object: Threatlet Priorities
+#### Threatlet Priorities
 
 ##### COMPOSERS
 
 Export | Description
+------ | -----------
 Threadlet.Priority | Property that returns a static object of priority values.
 
 ##### METHODS
@@ -166,66 +167,21 @@ Low | Lowest scheduling priority.
 Default | Default scheduling priority. Threadlets at this priority will be dispatched on average twice as often as low priority threadlets.
 High | Highest scheduling priority. Threadlets at this priority will be dispatched on average twice as often as default priority threadlets.
 
-### PROMISES
+### STATES
 
-The *Threatlet* and [*Worker*](Worker.md) asynchronous containers provide promise handler services defining promise handlers that are automatically attached to the *promise* object that is associated with each task. In addition, a *Threadlet* will attach a default *catch* (rejection handler) to the end of the *promise* chain. However, a *promise* that is associated with a *Threadlet* or *Worker* can be assigned handlers via the normal promise *then*, *catch* and *finally* methods which will extend the *promise* chain beyond the scope of a *Threadler* or *Worker*. This will result in split *promise* chains where we minimally end up with the default rejection handler not being at the end of the main *promise* chain. To avoid this the micosmo async package has a *Promises* object and function that enables the management of a single *promise* chain.
+State | Description
+----- | -----------
+ready | The threatlet is ready to run a new task.
+running | The threadlet is running a task.
+pausing | The threadlet will pause at the the next yield point.
+paused | The threadlet has paused and is waiting for a resume request.
+ending | The threadlet is cleaning up after a tasked has ended.
+ended | The previous task has ended.
+failed | The previous task has failed.
+waiting | The threadlet is waiting on a promise.
+stopped | The threadlet has stopped. No tasks can be submitted to the threadlet.
 
-The *Promises* object is based on a standard promises interface that must implement a *then*, *catch* and *finally* methods which are attached to an object's *promises* property. Each promises implementation can be object specific but would be expected to apply the promise handlers to one or more *promise* objects at some point within the object's life cycle. The requirement for a *promises* property ensures that an object, as a resolved value, is not considered to be a *thenable* object when a *Promise* is being resolved. A *Promises* should also have a *owner* property that returns the owner object and a *link* property to return the last *promise* linked in the chain.
-
-Example:
-
-```javascript
-  ...
-  // Apply resolve handler to an object's promise structure
-  object.promises.then(() => { .... });
-  // Will create a resolved promise with 'object' as the value.
-  Promise.resolve(object); 
-  ...
-  // The 'then' method of  'object' that applies resolve handler to an object's promise structure
-  object.then(() => { .... });
-  // Will create a resolved promise BUT will attempt to resolve 'object' as a 'thenable' 
-  // rather than using 'object' as the value
-  Promise.resolve(object); 
-```
-
-#### Object: Promises
-
-The default *Promises* implementation creates a *Promises* object that defers the attachment of promise handlers to a *Promise* or [*LazyPromise*](lazypromise.md)). The *then*, *catch* and *finally* methods add their associated handlers on to a list and the *Promises* owner applies the handlers to a target promise type as required.
-
-##### COMPOSERS
-
-Export | Description
------- | -----------
-Promises(owner) - Returns a new *Promises* object that is related to the *owner* object.
-
-##### METHODS
-
-Method | Description
------- | -----------
-then(onFulfilled,&nbsp;onRejected) | Adds new *then* handlers to the *promises* list. Returns the *promises* object.
-catch(onRejected) | Adds a new *catch* hamdler to the *promises* list. Returns the *promises* object.
-finally(onFinally) | Adds a new *finally* hamdler to the *promises* list. Returns the *promises* object.
-apply(promise) | Applies the handler list to the *promise* in the order that they were added. Returns the *promises* object.
-clear([promise]) | Clears the handler list after calling *apply* if a *promise* is provided. Returns the *promises* object.
-
-##### PROPERTIES
-
-Property | Description
--------- | -----------
-owner | Contains the owner of the *promises* object.
-link | Contains the last *promise* in the chain created by applying the handlers to a *promise* or *lazyPromise*.
-
-##### FUNCTIONS
-
-Function | Description
------- | -----------
-Promises(promise) | Returns the *promise* or if the *promise* is related to a *LazyPromise* then as per *Promises(lazyPromise)*.
-Promises(lazyPromise) | Returns *lazyPromise.promises*.
-Promises(promises) | Returns *promises*.
-Promises(object) | Returns *object.promises* of if no *promises* property then returns a new *Promises* with *object* as the owner.
-Promises(v) | For any other value will return *Promise.resolve(v)*. 
-Promises.reject(v[,&nbsp;msg]) | The rejected value *v* is processed by the default rejection handler. The optional *msg* can be displayed in any logged detail. See *setDefaultCatchHandler* in [utils](lib/utils.md) for setting a alternate default rejection handler. Is initially set to *Promises.miReject*.
-Promises.miReject(v[,&nbsp;msg]) | The rejected value *v* is processed by the default micosmo rejection handler. If *v* is an *Error* the error message and stack, if available, are written to *console.error*. If *v* is a *promise* or *thenable* (promisable) then an error message is written to *console.error* and promisable is returned. All other values are written out in a rejection message to *console.error*. Returns *Promise(retValue)* where *retValue* will be a promisable or *undefined*.
+NOTE: The threadlet *endState* can be one of *ready* (only before first task), *running*, *ended* or *failed*.
 
 ## LICENSE
 

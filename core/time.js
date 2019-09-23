@@ -3,6 +3,8 @@
  *
  * Time related services and utilities
  */
+"use strict"
+
 const { isClient } = require('./object');
 
 const createTimer = isClient() ? createClientTimer : createServerTimer;
