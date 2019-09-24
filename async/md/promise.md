@@ -194,7 +194,7 @@ An interface specification for defining an object that implements the *then*, *c
 
 All micosmo asynchronous services return a native *Promise* that is created and managed by a *LazyPromise*. A *LazyPromise* as well as *AsyncPromise*, are *SealedContract* variants that will not settle (resolve or reject) unless the code that created the *SealedContract* returns control to the Javascript kernel. Before this occurs the code can attach settlement handlers that will take precedence over the *Contract* *whenResolved*, *whenRejected*, *whenSettled*, default rejection and contract finally handlers. However, this can only be achieved if the code calls ```Promises(promise).then(...)...``` to allow the *LazyPromise* to manage the promise chain. If not then a split chain will be created which will be independent of the LazyPromise chain.
 
-Once a *SealedContract* has settled, any new attachment of settlement handlers against the *SealedContract* will be placed after those from the bound *Contract*. At this point any rejections have been handled and a resolved value is propagated. If this is not the desired outcome then settlement handlers can be attached to the original returned native *Promise* to receive the resolved or rejected value after being processed only by the *Contract* *whenSealed* handlers. Alternatively the settlement handlers can be attached to the *rootPromise* of the *SealedContract* to get access to the raw resolved or rejected value by calling ```promise.sealedContract.rootPromise```.
+Once a *SealedContract* has settled, any new attachment of settlement handlers against the *SealedContract* will be placed after those from the bound *Contract*. At this point any rejections have been handled and a resolved value is propagated. If this is not the desired outcome then settlement handlers can be attached to the original returned native *Promise* to receive the resolved or rejected value after being processed only by the *Contract* *whenSealed* handlers. Alternatively the settlement handlers can be attached to the *rootPromise* of the *SealedContract* to get access to the raw resolved or rejected value. The *rootPromise* can be accessed by the property expression ```<promise>.sealedContract.rootPromise``` where ```<promise>``` is the reference to the *Promise*.
 
 Goto [Contract](#Contract), [SealedContract](#SealedContract), [ProxyPromise](#ProxyPromise), [AsyncPromise](#AsyncPromise), [LazyPromise](#LazyPromise), [Promises.Recorder](#Promises.Recorder), [Promises.Applier](#Promises.Applier)
 
@@ -267,7 +267,7 @@ Goto [Contract](#Contract), [SealedContract](#SealedContract), [ProxyPromise](#P
 
 Export | Description
 ------ | -----------
-Promises.Applier(owner[,&nbsp;parent]) - Returns a new *Promises.Applier* object that is associated with the *owner* object. Optional *parent* (owner of *owner*) will default to *owner*.
+Promises.Applier(owner[,&nbsp;parent]) | Returns a new *Promises.Applier* object that is associated with the *owner* object. Optional *parent* (owner of *owner*) will default to *owner*.
 
 ##### CALLBACKS
 

@@ -33,7 +33,7 @@ Semaphore(signalValues) | Returns a new *Semaphore* with an array of pending *si
 Method | Description
 ------ | -----------
 signal([v]) | Releases *Semaphore* with the optional return value *v*, or *undefined*. If there is an asynchronous task waiting on the wait queue then the top task is removed from the wait queue and signalled to terminate the *wait* with the return value. If the wait queue is empty then the return value is pushed onto a queue of pending signals. Returns the *Semaphore*.
-wait() | Requests access to the *Semaphore*. If the *Semaphore* has a pending signal count then the caller will immediately acquire access to the *Semaphore* otherwise will be added to the end of the wait queue. Returns the signal value if the *Semaphore* is immediately acquired, or a *Promise* if the task is placed on the wait queue. This method would typically be called on a *await* statement in an async function or a *yield* statement in a *Threadable*.
+wait() | Requests access to the *Semaphore*. If the *Semaphore* has a pending signal count then the caller will immediately acquire access to the *Semaphore* otherwise will be added to the end of the wait queue. Returns a *Promise* that will be resolved to the signal value when the *Semaphore* is acquired. This method would typically be called on a *await* statement in an async function or a *yield* statement in a *Threadable*.
 wait(ms[,&nbsp;timeoutValue]) | As for *wait()*, except that *ms* defines a millisecond timeout period that that caller will wait for the *Semaphore* to be signalled. The optional *timeoutValue* or *undefined* will beome the resolved value of the returned *Promise* should the timeout period expire.
 
 ##### PROPERTIES

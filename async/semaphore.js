@@ -65,7 +65,7 @@ function _SemaphorePrototype() {
       value(ms, timeoutValue) {
         const Private = fPrivate(this);
         if (Private.signalValues.length > 0)
-          return Private.signalValues.shift();
+          return Promise.resolve(Private.signalValues.shift());
         const lp = LazyPromise();
         var timer;
         if (ms !== undefined && typeof ms === 'number' && ms > 0)
