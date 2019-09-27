@@ -34,8 +34,8 @@ Serialises the execution of tasks that are submitted to a *Threadlet*. Each task
 
 Export | Description
 -------- | -----------
-Threadlet([name[,&nbsp;controls]]) | Returns a new *Threadlet*. Optional *name* and scheduling *controls* can also be provided. See Object section below on *Threadlet Controls* for more detail.
-Threadlet(controls) | Returns a new *Threadlet* configured with the supplied scheduling *controls*. See Object section below on *Threadlet Controls* for more detail.
+Threadlet([name[,&nbsp;controls]]) | Returns a new *Threadlet*. Optional *name* and scheduling *controls* can also be provided. See [*ThreadletControls*](#ThreadletControls) for more detail.
+Threadlet(controls) | Returns a new *Threadlet* configured with the supplied scheduling *controls*. See [*ThreadletControls*](#ThreadletControls) for more detail.
 
 ##### METHODS
 
@@ -56,7 +56,7 @@ Property | Description
 isaThreadlet | Set to *true*.
 id | The *id* number associated with the *Threatlet*.
 name | The name of the *Threadlet*. Defaults to *Threadlet:&lt;id&gt;*.
-controls | Scheduling controls. See Object section below on *Threadlet Controls* for more detail.
+controls | Scheduling controls. See [*ThreadletControls*](#ThreadletControls) for more detail.
 contract | Contract defining settlement handlers for each task. See [Contract](promise.md#Contract) for more detail.
 isReady | Returns *true* if the *Threadlet* is ready to run a task.
 isRunning | Returns *true* if the *Threadlet* is running a task.
@@ -127,7 +127,7 @@ endValue | The value returned by the last task. Valid only when the *Threadlet* 
   */
 ```
 
-#### Threatlet Controls
+#### ThreadletControls
 
 An object that is instantiated when a new *Threadlet* is created. Values can be provided by a *controls* seed object when creating the *Threadlet* or will be defaulted. The *controls* are employed by the *Threadlet Scheduler* to schedule *Threatlet* execution.
 
@@ -143,11 +143,11 @@ None
 
 Property | Description
 -------- | -----------
-priority | The execution priority of the *Threadlet*. See Object section below on *Threatlet Priorities*. Default is *Threadlet.Priority.Default*.
+priority | The execution priority of the *Threadlet*. See [*ThreatletPriorities*](#ThreatletPriorities) below. Default is *Threadlet.Priority.Default*.
 timeslice | The time allocated to a *Threatlet* for each  processing interval as a number expressed in milliseconds with microsecond precision (where supported). A *Threadlet* maintains control of the Javascript thread until the *timeslice* expires. If a *Threadlet* yields during a timeslice the scheduler will place the *Threadlet* at the end of the schedulers *run* queue. At the end of a *timeslice* a *Threatlet* will be returned to it's priority queued depending on the *yieldInterval*. The *timeslice* may be set to zero which will force the *Threatlet* to be rescheduled at each yield point. Default is 0.
 yieldInterval | The minimum time between processing intervals as an integer expressed in milliseconds. At the end of each *timeslice* the scheduler will place the *Threadlet* into a wait state for the remainder of the *yieldInterval* less the actual processing time. If the *Threadlet's* processing time is greater than the *yieldInterval* then the *Threatlet* is immediately placed on the *Threatlet's* priority queue. If the *yieldInterval* is set to zero then threatlet scheduling will be based on the *timeslice* only. Default is 0.
 
-#### Threatlet Priorities
+#### ThreatletPriorities
 
 ##### COMPOSERS
 

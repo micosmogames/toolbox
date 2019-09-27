@@ -158,7 +158,7 @@ Method | Description
 run([stepArg,&nbsp;]f,&nbsp;...args) | Adds the step defined by the function *f* and arguments *args* to the processes open list. The optional *stepArg* is a [StepArg](#StepArg) function that performs the mapping of the previous step's return value as a parameter for this step. Default is *StepArg.none*.
 bindRun(This,&nbsp;[stepArg,&nbsp;]f,&nbsp;...args) | As for *run* but will bind *This* to the function *f*.
 bindRun(This,&nbsp;[stepArg,&nbsp;]methName,&nbsp;...args) | As for *run* but will bind *This* to *This[methName]*.
-steps(...steps) | Defines a set of steps for the process. Can be either a single parameter which is an array or is the parameter list itself. Each step definition is either just a function or an array that contains a function followed by 1 or more parameters. For example ```group.tasks(f1, [stepArg.arg(0), f2, arg1, ...], ...)```.
+steps(...steps) | Defines a set of steps for the process. Can be either a single parameter which is an array or is the parameter list itself. Each step definition is either just a function or an array that contains a function followed by 1 or more parameters. For example ```group.tasks(f1, [StepArg.arg(0), f2, arg1, ...], ...)```.
 start() | Informs the *Worker.Process* that step processing can start before all the steps have been added to the process. The process remains open. Returns the process *Promise*.
 close() | Informs the *Worker.Process* that the process is now closed and processing can be finalised. The process promise will be resolved once the final step has ended. The resolved value will be the return value of the last step. Returns the final process *Promise*.
 reject(v) | Passes *v* to the default rejection handler.

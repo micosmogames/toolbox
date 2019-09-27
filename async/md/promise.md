@@ -236,7 +236,7 @@ Goto [Contract](#Contract), [SealedContract](#SealedContract), [ProxyPromise](#P
 
 Export | Description
 ------ | -----------
-Promises.Recorder(owner[,&nbsp;parent]) - Returns a new *Promises.Recorder* object that is associated with the *owner* object. Optional *parent* (owner of *owner*) will default to *owner*.
+Promises.Recorder(owner[,&nbsp;parent]) | Returns a new *Promises.Recorder* object that is associated with the *owner* object. Optional *parent* (owner of *owner*) will default to *owner*.
 
 ##### METHODS
 
