@@ -12,7 +12,7 @@ import '@micosmo/aframe/misound';
 
 ### COMPONENTS
 
-#### Component: misound
+#### misound
 
 Extended version of Aframe *sound* component.
 

@@ -12,7 +12,7 @@ import require('@micosmo/aframe/gltf-blender-part');
 
 ### COMPONENTS
 
-#### Component: gltf-blender-part
+#### gltf-blender-part
 
 Extract a part contained in a Blender model. Emits *model-loaded* and *object3dset* events once the part is loaded.
 

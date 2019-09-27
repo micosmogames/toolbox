@@ -13,7 +13,7 @@ import '@micosmo/aframe/button';
 
 ### COMPONENTS
 
-#### Component: button
+#### button
 
 Implements a virtual button controller that generates synthetic *vrbuttondown* and *vrbuttonup* events to the element that the button is connected to.
 

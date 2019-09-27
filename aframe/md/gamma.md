@@ -12,7 +12,7 @@ import require('@micosmo/aframe/gamma');
 
 ### COMPONENTS
 
-#### Component: gamma
+#### gamma
 
 Enable or disable gamma output on the scene's renderer.
 

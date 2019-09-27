@@ -12,7 +12,7 @@ import '@micosmo/aframe/jukebox';
 
 ### COMPONENTS
 
-#### Component: jukebox
+#### jukebox
 
 Background music manager.
 

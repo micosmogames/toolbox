@@ -28,7 +28,7 @@ copy(from[,&nbsp;to]) | Descriptor level copy of the *from* object. A target *to
 openCopy(from[,&nbsp;to]) | As for *copy* except that the descriptors are set to *configurable*.
 closedCopy(from[,&nbsp;to]) | As for *copy* except that the descriptors are set to not *configurable* anf the target object is sealed.
 copyValues(from[,&nbsp;to]) | Similar to *assignValues* except the function call would normally create the *to* object. Returns the *to* object.
-reverseCopy(from) | Returns a  reverse copy of an array. If *from* is any other data type then request is passed *copy*.
+reverseCopy(from) | Returns a  reverse copy of an array. If *from* is any other data type then request is passed to *copy*.
 clone(from[,&nbsp;to]) | Descriptor level clone of the *from* object. A target *to* object can be provided. Includes *private* properties. Returns the *to* object. The clone process is effectively a deep copy, with circular or duplicate references mapped to a single cloned value. Returns the *to* object.
 openClone(from[,&nbsp;to]) | As for *clone* except that the descriptors are set to *configurable*.
 closedClone(from[,&nbsp;to]) | As for *clone* except that the descriptors are set to not *configurable* and the target object is sealed.
@@ -45,7 +45,7 @@ The *micopy* and *myclone* methods are passed a *context* object that defines th
 
 Property | Description
 -------- | -----------
-replicate(from[, to]) | A function that calls the context's replication processor to replicate the *from* value. A target *to* object can also be provided if the *from* value is an object.
+replicate(from[,&nbsp;to]) | A function that calls the context's replication processor to replicate the *from* value. A target *to* object can also be provided if the *from* value is an object.
 copyContext | *miclone* context parameter only. The alternate matching context for copying values instead of cloning.
 cloneContext | *micopy* context parameter only. The alternate matching contect for cloning values instead of copying.
 

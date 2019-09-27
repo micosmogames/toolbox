@@ -8,63 +8,58 @@
 import aframe from 'aframe';
 import { declareMethods, method } from '@micosmo/core';
 
-declareMethods(systemLoadedListener, componentLoadedListener);
+declareMethods(systemLoadedListener);
 
-var LoadingScenes = new Set();
+var LoadingScenes = [];
+var OnLoadedDoQueue = [];
+var AfterLoadedDoQueue = [];
 
 aframe.registerSystem("startup", {
   init() {
-    LoadingScenes.add(this.sceneEl);
-    this.name = this.sceneEl.id || '<unknown>'
+    LoadingScenes.push(this.sceneEl);
+    this.name = this.sceneEl.id || '<noid>'
     this.fLoadedListener = systemLoadedListener.bind(this);
     this.sceneEl.addEventListener('loaded', this.fLoadedListener);
-    this.onLoadedDoQueue = [];
-    this.afterLoadedDoQueue = [];
   },
 });
 
-export function onLoadedDo(f, el) {
-  const [f1, sceneEl] = checkLoadedArgs(f, el, 'onLoadedDo');
-  if (!sceneEl || sceneEl.hasLoaded)
-    return f1();
-  sceneEl.systems.startup.onLoadedDoQueue.push(f1);
+export function onLoadedDo(f) {
+  if (typeof f !== 'function')
+    throw new Error(`micosmo:system:onLoadedDo: Missing function`);
+  if (LoadingScenes.length === 0)
+    return f();
+  OnLoadedDoQueue.push(f);
 }
 
-export function afterLoadedDo(f, el) {
-  const [f1, sceneEl] = checkLoadedArgs(f, el, 'afterLoadedDo');
-  if (!sceneEl || sceneEl.hasLoaded)
-    return f1();
-  sceneEl.systems.startup.afterLoadedDo.push(f1);
-}
-
-function checkLoadedArgs(f, el, fn) {
-  if (typeof f !== 'function') {
-    if (typeof el !== 'function')
-      throw new Error(`micosmo:system:${fn}: Missing function`);
-    if (typeof f !== 'object' || !f.sceneEl)
-      throw new Error(`micosmo:system:${fn}: Invalid entity`);
-    return [el.sceneEl, f];
-  } else if (el) {
-    if (typeof el !== 'object' || !el.sceneEl)
-      throw new Error(`micosmo:system:${fn}: Invalid entity`);
-    return [f, el.sceneEl];
-  }
-  if (LoadingScenes.length > 1)
-    throw new Error(`micosmo:system:${fn}: Require entity parameter for concurrent load of two scenes`);
-  return [f, LoadingScenes[0]]; // Returns undefined for sceneEl if array empty
+export function afterLoadedDo(f) {
+  if (typeof f !== 'function')
+    throw new Error(`micosmo:system:afterLoadedDo: Missing function`);
+  if (LoadingScenes.length === 0)
+    return f();
+  AfterLoadedDoQueue.push(f);
 }
 
 method(systemLoadedListener);
 function systemLoadedListener() {
-  console.info(`micosmo:system:startup:systemLoadedListener: Processing 'onLoadedDo' & 'afterLoadedDo' queues. Scene(${this.name})`);
   this.sceneEl.removeEventListener('loaded', this.fLoadedListener);
-  LoadingScenes.delete(this.sceneEl);
-  const queue = this.onLoadedDoQueue;
-  this.onLoadedDoQueue = [];
+  if (LoadingScenes.length > 1) {
+    console.info(`micosmo:system:startup:systemLoadedListener: Processing of 'onLoadedDo' & 'afterLoadedDo' queues for scene '${this.name}' deferred. Multiple scenes loading ...`);
+    LoadingScenes.splice(LoadingScenes.indexOf(this.sceneEl), 1);
+    if (!this.startupComponent)
+      throw new Error(`micosmo:system:startup:systemLoadedListener: Scene '${this.name}' requires a 'startup'`);
+    AfterLoadedDoQueue.push(() => this.sceneEl.systems.states.start(this.startupComponent.data.state));
+  }
+  console.info(`micosmo:system:startup:systemLoadedListener: Processing 'onLoadedDo' & 'afterLoadedDo' queues. Scene(${this.name})`);
+  LoadingScenes = [];
+  const queue = OnLoadedDoQueue; OnLoadedDoQueue = [];
   queue.forEach(f => f());
   // Run all processing that must occur after all loading activity is complete
-  this.afterLoadedDoQueue.forEach(f => f());
-  this.afterLoadedDoQueue = [];
+  AfterLoadedDoQueue.forEach(f => f());
+  AfterLoadedDoQueue = [];
+  // Now kick of the initial game state
+  if (!this.startupComponent)
+    throw new Error(`micosmo:system:startup:systemLoadedListener: Scene '${this.name}' requires a 'startup'`);
+  this.sceneEl.systems.states.start(this.startupComponent.data.state);
 }
 
 aframe.registerComponent("startup", {
@@ -75,17 +70,10 @@ aframe.registerComponent("startup", {
   init() {
     if (this.data.name !== '')
       this.system.name = this.data.name;
-    this.fLoadedListener = componentLoadedListener.bind(this);
-    this.sceneEl.addEventListener('loaded', this.fLoadedListener);
+    this.system.startupComponent = this;
   },
   update(oldData) {
-    if (oldData)
-      throw new Error(`micosmo:component:startup:update: Component cannot be updated`);
+    if (oldData.state)
+      throw new Error(`micosmo:component:startup:update: Component schema cannot be updated`);
   }
 });
-
-method(componentLoadedListener);
-function componentLoadedListener() {
-  this.sceneEl.removeEventListener('loaded', this.fLoadedListener);
-  this.sceneEl.systems.game.start(this.state);
-}

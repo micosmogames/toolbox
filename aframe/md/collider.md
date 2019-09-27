@@ -12,7 +12,7 @@ import require('@micosmo/aframe/collider');
 
 ### SYSTEMS
 
-#### System: collider
+#### collider
 
 Monitors the state of collidable objects and signals events when a collision starts and ends.
 
@@ -26,7 +26,7 @@ None
 
 ### COMPONENTS
 
-#### Component: collider
+#### collider
 
 Defines an entity element as a target for a collision or a candidate for a collision with one or more targets. 
 

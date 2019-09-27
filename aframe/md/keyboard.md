@@ -20,7 +20,7 @@ import { addListeners, removeListeners } from '@micosmo/aframe/keyboard';
 
 ### SYSTEMS
 
-#### System: keyboard
+#### keyboard
 
 Responsible for establishing and listening to the document level keyboard events and dispatching events to application components. Maintains a map of application component event listeners.
 

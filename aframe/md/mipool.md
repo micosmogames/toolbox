@@ -12,7 +12,7 @@ import '@micosmo/aframe/mipool';
 
 ### COMPONENTS
 
-#### Component: mipool
+#### mipool
 
 Extended version of Aframe *pool* component.
 

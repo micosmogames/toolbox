@@ -9,7 +9,7 @@ import aframe from "aframe";
 import { bindEvent } from 'aframe-event-decorators';
 import { copyValues, equivalent } from '@micosmo/core';
 import { onLoadedDo } from './startup';
-import { startProcess, msWaiter, iterator, msTimer, timer, tryLocateTicker } from '@micosmo/ticker/aframe-ticker';
+import { startProcess, msWaiter, iterator, timer, tryLocateTicker } from '@micosmo/ticker/aframe-ticker';
 
 const ModuleName = 'micosmo:component:misound:';
 
@@ -495,35 +495,6 @@ function fadeFor(misound, audio, fade) {
     return 'more';
   };
 }
-
-/*
-function fadeOutFor(misound, audio, fadeOut) {
-  var audioDuration = audio.buffer.duration;
-  const offset = (fadeOut.offset < 0 ? audioDuration + fadeOut.offset : fadeOut.offset) * 1000;
-  const startRemain = (audioDuration *= 1000) - offset;
-  const sVol = fadeOut.startVolume | misound.state.volume;
-  const vDiff = sVol - fadeOut.targetVolume * misound.state.volume;
-
-  return msTimer(audioDuration, (tm, dt, remain) => {
-    if (remain > startRemain)
-      return 'more';
-    audio.setVolume(sVol - vDiff * (startRemain - remain) / startRemain);
-    return 'more';
-  });
-}
-
-function fadeInFor(misound, audio, fadeIn) {
-  const duration = (fadeIn.duration | audio.buffer.duration) * 1000;
-  const sVol = fadeIn.startVolume;
-  const tVol = fadeIn.targetVolume * misound.state.volume | misound.state.volume;
-  const vDiff = tVol - sVol;
-  audio.setVolume(sVol);
-  return msTimer(duration, (tm, dt, remain) => {
-    audio.setVolume(sVol + vDiff * (duration - remain) / duration);
-    return 'more';
-  });
-}
-*/
 
 function findLongestRunningAudio(sound) {
   let iAudio = 0;
