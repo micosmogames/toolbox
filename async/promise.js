@@ -300,7 +300,7 @@ function _PromisesRecorderPrototype() {
       },
       enumerable: true
     },
-    clear: { value: function () { this.handlers.splice(0); return this }, enumerable: true },
+    clear: { value: function () { this.handlers.length = 0; return this }, enumerable: true },
     applyAndClear: { value: function (promise) { const o = this.apply(promise); this.clear(); return o }, enumerable: true }
   })
 };

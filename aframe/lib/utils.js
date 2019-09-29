@@ -37,3 +37,18 @@ export function isVisibleInScene(el) {
   }
   return true;
 }
+
+export function createSchemaPersistentObject(comp, data, prop) {
+  var o = data[prop];
+  if (!o) {
+    o = {};
+    comp.extendSchema({
+      [prop]: {
+        default: {},
+        parse() { return o },
+        stringify() { JSON.stringify(o) }
+      }
+    })
+  }
+  return o;
+}

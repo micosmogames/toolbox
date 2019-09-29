@@ -1,6 +1,8 @@
 # @micosmo/aframe/states
 
-Aframe system and component to manage the definition of states and the transition between states.
+Aframe component that provides light-weight management for the definition of and the transition between states. A scene can have mulitple *states* components that define different levels of state management. The *states* component is also a *multiple* component allowing an id to be assigned and mulitple occurrences on the one element.
+
+State transitions are initiated via direct calls to the required *states* component and transitions are notified by specific event names that are allocated to each component. States can be implemented in a loosely or tightly coupled manner with specific events types for handling the entry and exit to and from a state, as well as a generic state changed event type. Transitions can be either chained or stacked allowing a caller to inject a new state that will later return to the previous state.
 
 ## API
 
@@ -10,42 +12,28 @@ Aframe system and component to manage the definition of states and the transitio
 import '@micosmo/aframe/states';
 ```
 
-### SYSTEMS
-
-#### states
-
-System that holds the applications state table and contains the methods to transition between states.
- 
-##### METHODS
-
-Method | Description
------- | -----------
-start(state) | Internal method that is called by the *startup* system to initiate the application at the startup state. Calls the *enter* handler for the *state* and emits a *statechanged* event. See [StateChangedObject](#StateChangedObject) for more detail.
-chain(state) | Calls the current state's *exit* handler and the *enter* handler for the new *state*. Emits a *statechanged* event for both *exit* and *enter* states.
-push(state) | Saves the current state on a stack and calls it's *exit* handler, followed by the *enter* handler for the new *state*.  Emits a *statechanged* event for both *exit* and *enter* states.
-pop() | Calls the *exit* handler for the current state, pops the state stack and calls it's *enter* handler.  Emits a *statechanged* event for both *exit* and *enter* states.
-pause() | Calls the *pause* handler for the current state. Emits a *statechanged* event for current state *pause*.
-resume() | Calls the *resume* handler for the current state. Emits a *statechanged* event for current state *resume*.
-
-##### PROPERTIES
-
-None
-
 ### COMPONENTS
 
 #### states
 
-Defines the states that are implemented by component(s) in the same entity definition. Ex. ```states="Loading, MainMenu"```
-
-The *states* component will check each component that is attached to the entity and look for a *State&lt;state&gt;* (i.e. ```StateLoading```) property. The property must be an object with state handler definitions; see [StateObject](#StateObject) for more detail.
+Component that that manages the transitions for a specific list of states.
 
 ##### SCHEMA
 
-Schema is a string value as a comma separated list of state names.
+Property | Type | Default | Description
+-------- | ---- | ------- | -----------
+list | array | [] | A list of one or more state names that are managed by the component. Required.
+exitEvent | string | '' | The name of the event that is to be emitted when a state is exiting. The name can include the pattern *%state%* which will be replaced by the actual state name. For example *exit%state%* for the *Loading* state would generated an event name of *exitLoading*. See [EventDetail](#EventDetail) for details on the event detail object.
+enterEvent | string | '' | The name of the event that is to be emitted when a state is being entered. The name can include the pattern *%state%* which will be replaced by the actual state name. For example *enter%state%* for the *Loading* state would generated an event name of *enterLoading*. See [EventDetail](#EventDetail) for details on the event detail object.
+changeEvent | string | 'statechanged' | The name of the event that is to be emitted when the state has changed. See [EventDetail](#EventDetail) for details on the event detail object.
 
 ##### METHODS
 
-None
+Method | Description
+------ | -----------
+chain(state) | Emit *exit* event for the current state, followed by *enter* event for the new *state*. Finally *statechanged* event is emitted. The exit event will not be emitted if there is no current state, which will be the case on the first *chain* call.
+push(state) | As for *chain* except that current state is pushed onto the state stack.
+pop() | As for *chain* except that the new state is popped from the state stack.
 
 ##### PROPERTIES
 
@@ -53,32 +41,17 @@ None
 
 ### OBJECTS
 
-#### StateObject
+#### EventDetail
 
-Contains state handlers for implementing state transitions.
-
-##### PROPERTIES
-
-Property | Description
--------- | -----------
-enter(state,&nbsp;oldState,&nbsp;how) | A function that implements the transition to *state*. The *exit* handler for *oldState* has already been called. A *statechanged* event will be emitted after *enter*. *how* can be *start*, *chain*, *push* or *pop*. Defaults to the *noop* function.
-exit(state,&nbsp;nextState,&nbsp;how) | A function that implements the transition from *state*. The *enter* handler for *nextState* will be called immediately afterwards. A *statechanged* event will be emitted before *exit*. *how* can be *chain*, *push* or *pop*. Defaults to the *noop* function.
-pause(state,&nbsp;how) | A function that implements a pause for *state*. A *statechanged* event will be emitted after *pause*. *how* can be *pause*. Defaults to the *noop* function.
-resume(state,&nbsp;how) | A function that implements a resume for *state*. A *statechanged* event will be emitted before *resume*. *how* can be *pause*. Defaults to the *noop* function.
-
-#### StateChangedObject
-
-The *statechanged* event detail object.
+Event detail object.
 
 ##### PROPERTIES
 
 Property | Description
 -------- | -----------
-event | Event name of the form ```<action><state>Event```. Ex. enterLoadingEvent
-relatedState | Name of the related state depending on the event context. Fo example *relatedState* will be the next state if *action* is *exit*.
-state | Name of the state that event relates to.
-action | The name of the *action* being applied to the *state*. One of *enter*, *exit*, *pause* or *resume*.
-how | How the event was raised. One of *start*, *chain*, *push*, *pop*, *pause* or *resume*.
+fromState | Name of the state that we are transitioning from. This will be *undefined* if there is no *fromState*.
+toState | Name of the state that we are transitioning to.
+how | How the event was raised. One of *chain*, *push*, *pop*.
 
 ## LICENSE
 

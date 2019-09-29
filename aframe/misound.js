@@ -8,6 +8,7 @@
 import aframe from "aframe";
 import { bindEvent } from 'aframe-event-decorators';
 import { copyValues, equivalent } from '@micosmo/core';
+import { createSchemaPersistentObject } from './lib/utils';
 import { onLoadedDo } from './startup';
 import { startProcess, msWaiter, iterator, timer, tryLocateTicker } from '@micosmo/ticker/aframe-ticker';
 
@@ -34,17 +35,9 @@ aframe.registerComponent('misound', {
     rolloffFactor: { default: 1 },
     src: { type: 'audio' },
     volume: { default: 1 },
-    // '_state' is an internal schema property that holds call level interface data. It is
-    // included here to allow the data to be displayed in the browser inspector.
-    _state: {
-      default: {},
-      parse: o => {
-        if (typeof o !== 'object')
-          throw new Error(`${ModuleName}schema: The property '_state' cannot be configured`);
-        return o;
-      },
-      stringify: o => `{volume:${o.volume}, playbackRate:${o.playbackRate}}`
-    }
+  },
+  updateSchema(data) {
+    createSchemaPersistentObject(this, data, '_state');
   },
 
   multiple: true,

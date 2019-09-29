@@ -3,7 +3,7 @@
 Aframe system that manages the dispatching of queued tasks that cannot be performed until the application and aframe elements have been loaded.
 Two queues are supported. The *onLoaded* queue is dispatched immediately after the system *loaded* event is received, The second *afterLoaded* queue is dispatched after all the *onLoaded* processing is complete. If 2 or more scenes are loading concurrently then the *onLoaded* and *afterLoaded* queues will only be processed once all scenes have been loaded.
 
-The *startup* system has no API and purely listens for the *loaded* event. Queueing of tasks is via module exports. A single *startup* component must be included in the scene to nominate the initial state of the game or application. See [states](states.md) for more detail.
+The interface is provided as both exports from the *startup* module or via a system call of the form ```this.el.sceneEl.systems.startup...```
 
 ## API
 
@@ -13,31 +13,26 @@ The *startup* system has no API and purely listens for the *loaded* event. Queue
 import { onLoadedDo, afterLoadedDo } from '@micosmo/aframe/startup';
 ```
 
-### COMPONENTS
+### SYSTEMS
 
 #### startup
 
-Component that can define an extended name and/or set the startup state for the scene/application.
+System that queues the *onLoaded* and *afterLoaded* tasks to be dispatched when a scene or scenes have loaded. If multiple scenes are loaded concurrently then the tasks will be dispatched when the last concurrent scene has loaded. Otherwise multiple scenes will be processed in the order that they are loaded. 
 
-A single instance of the *startup* component is required specifying the startup state. This can be located in the scene entity.
-If an application *name* is also being specified then the *startup* component should appear on the first child entity of the scene.
-
-##### SCHEMA
-
-Additional schema properties only.
-
-Property | Type | Default | Description
--------- | ---- | ------- | -----------
-name | string | '' | Optional extended name for the application. Ex. 'Asteroids In Hyperspace'
-state | string | 'Loading' | The startup state for the application.
+If a task that is dispatched after being queued returns a *Promise* then the *startup* system will wait for the *Promise* to be settled. Promises that are returned from *onLoaded* tasks will be settled before running the *afterLoaded* tasks.
 
 ##### METHODS
 
-None
+Method | Description
+------ | -----------
+onLoadedDo(f) | See *onLoadedDo* export below.
+afterLoadedDo(f) | See *afterLoadedDo* export below.
 
-##### PROPERTIES
+##### EVENTS
 
-None
+Event | Description
+----- | -----------
+startupComplete | Startup processing and any returned promises have been completed.
 
 ### EXPORTS
 
@@ -51,7 +46,7 @@ afterLoadedDo(f) | The function *f* is queued until the *loaded* event occurs an
 ### Version 0.1.2
 * Extended to support multiple scenes and potentailly concurrent loading of 2 or more scenes.
 * Integrated with states system
-* Added startup component that can specify a more detailed application name and the startup state.
+* Processes tasks asynchronously and will wait for promises returned from any task.
 
 ## LICENSE
 

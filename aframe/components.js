@@ -1,6 +1,5 @@
 import './keymap';
 import './keyboard';
-import './startup';
 import './states';
 import './button';
 import './jukebox';

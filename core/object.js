@@ -20,6 +20,10 @@ module.exports = {
   isClient,
   isGlobalThis,
   isServer,
+  requestObject,
+  returnObject,
+  requestArray,
+  returnArray
 }
 
 function getJsEnvType() {
@@ -31,4 +35,29 @@ function getJsEnvType() {
   if (env)
     return 'server';
   throw new Error('micosmo:core:getJsEnv: Unable to determine environment type')
+}
+
+const ObjectPool = [];
+function requestObject() {
+  if (ObjectPool.length === 0)
+    return {};
+  return ObjectPool.shift();
+}
+function returnObject(o) {
+  for (const prop in o) {
+    if (o.hasOwnProperty(prop))
+      delete o[prop];
+  }
+  ObjectPool.push(o);
+}
+
+const ArrayPool = [];
+function requestArray() {
+  if (ArrayPool.length === 0)
+    return [];
+  return ArrayPool.shift();
+}
+function returnArray(a) {
+  a.length = 0;
+  ArrayPool.push(a);
 }

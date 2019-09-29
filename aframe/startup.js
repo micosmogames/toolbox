@@ -7,6 +7,7 @@
 
 import aframe from 'aframe';
 import { declareMethods, method } from '@micosmo/core';
+import { AsyncPromise, isPromisable } from '@micosmo/async';
 
 declareMethods(systemLoadedListener);
 
@@ -17,10 +18,12 @@ var AfterLoadedDoQueue = [];
 aframe.registerSystem("startup", {
   init() {
     LoadingScenes.push(this.sceneEl);
-    this.name = this.sceneEl.id || '<noid>'
+    this.name = this.sceneEl.id || 'a-scene'
     this.fLoadedListener = systemLoadedListener.bind(this);
     this.sceneEl.addEventListener('loaded', this.fLoadedListener);
   },
+  onLoadedDo,
+  afterLoadedDo
 });
 
 export function onLoadedDo(f) {
@@ -45,35 +48,34 @@ function systemLoadedListener() {
   if (LoadingScenes.length > 1) {
     console.info(`micosmo:system:startup:systemLoadedListener: Processing of 'onLoadedDo' & 'afterLoadedDo' queues for scene '${this.name}' deferred. Multiple scenes loading ...`);
     LoadingScenes.splice(LoadingScenes.indexOf(this.sceneEl), 1);
-    if (!this.startupComponent)
-      throw new Error(`micosmo:system:startup:systemLoadedListener: Scene '${this.name}' requires a 'startup'`);
-    AfterLoadedDoQueue.push(() => this.sceneEl.systems.states.start(this.startupComponent.data.state));
+    AfterLoadedDoQueue.push(() => this.sceneEl.emit('startupComplete', undefined, false));
   }
   console.info(`micosmo:system:startup:systemLoadedListener: Processing 'onLoadedDo' & 'afterLoadedDo' queues. Scene(${this.name})`);
   LoadingScenes = [];
-  const queue = OnLoadedDoQueue; OnLoadedDoQueue = [];
-  queue.forEach(f => f());
-  // Run all processing that must occur after all loading activity is complete
-  AfterLoadedDoQueue.forEach(f => f());
-  AfterLoadedDoQueue = [];
-  // Now kick of the initial game state
-  if (!this.startupComponent)
-    throw new Error(`micosmo:system:startup:systemLoadedListener: Scene '${this.name}' requires a 'startup'`);
-  this.sceneEl.systems.states.start(this.startupComponent.data.state);
+  const onLoadedDoQueue = OnLoadedDoQueue; OnLoadedDoQueue = [];
+  const afterLoadedDoQueue = AfterLoadedDoQueue; AfterLoadedDoQueue = [];
+
+  // Run all tasks asynchronously and wait for any promises to settle
+  const aprom = AsyncPromise(resolve => {
+    // AfterLoadedDo tasks can only run after OnLoadedDo tasks (including promises) have finished
+    aprom.promises
+      .then(() => Promise.all(processQueue(onLoadedDoQueue)))
+      .then(() => {
+      // Run all processing that must occur after all loading activity is complete
+        aprom.promises
+          .then(() => Promise.all(processQueue(afterLoadedDoQueue)))
+          .then(() => this.sceneEl.emit('startupComplete', undefined, false));
+      });
+    resolve();
+  });
 }
 
-aframe.registerComponent("startup", {
-  schema: {
-    name: { type: 'string', default: '' },
-    state: { type: 'string', default: 'Loading' }
-  },
-  init() {
-    if (this.data.name !== '')
-      this.system.name = this.data.name;
-    this.system.startupComponent = this;
-  },
-  update(oldData) {
-    if (oldData.state)
-      throw new Error(`micosmo:component:startup:update: Component schema cannot be updated`);
-  }
-});
+function processQueue(queue) {
+  const promiseQueue = [];
+  queue.forEach(f => {
+    const v = f();
+    if (isPromisable(v))
+      promiseQueue.push(v);
+  });
+  return promiseQueue;
+}
