@@ -11,9 +11,9 @@
 *
 *  Schema: {
 *     list: An array or one or more state names for this state management component.
-*     events: An array of one or more event names to raise. Defaults to ['exit:exit', 'enter:enter', 'statechanged].
-*               The 'exit:<name>' and 'enter:<name>' events are emitted as '<name><state>State'
-*               All other names are emitted as is.
+*     enterEvent: Pattern for the enter event. %% makes position of enter state
+*     exitEvent: Pattern for the exit event. %% makes position of exit state
+*     changeEvent: Name of the change event.
 *
 *  Events are non bubbling and are emitted to the states element.
 *  The event detail object:
@@ -32,8 +32,8 @@ import { createSchemaPersistentObject } from './lib/utils';
 aframe.registerComponent("states", {
   schema: {
     list: { default: [] },
-    enterEvent: { default: '' }, // Allow patterns of the form xxxx%state%xxxx. Substitutes state
-    exitEvent: { default: '' }, // Allow patterns of the form xxxx%state%xxxx. Substitutes state
+    enterEvent: { default: '' }, // Allow patterns of the form xxxx%%xxxx. Substitutes %% for state
+    exitEvent: { default: '' }, // Allow patterns of the form xxxx%%xxxx. Substitutes %% for state
     changeEvent: { default: 'statechanged' },
   },
   updateSchema(data) {
@@ -44,6 +44,10 @@ aframe.registerComponent("states", {
     this.state = this.data._state;
     this.state.currentState = undefined;
     this.stack = [];
+  },
+  update() {
+    this.state.enterData = parsePattern(this.state.enterData, this.data.enterEvent);
+    this.state.exitData = parsePattern(this.state.exitData, this.data.exitEvent);
   },
   chain(state) { emitStateChange(this, this.state.currentState, state, 'chain') },
   push(state) { this.stack.push(this.state.currentState); emitStateChange(this, this.state.currentState, state, 'push') },
@@ -62,16 +66,28 @@ function emitStateChange(states, fromState, toState, how) {
   detail.fromState = fromState; detail.toState = toState; detail.how = how;
   const el = states.el;
   if (fromState && data.exitEvent !== '')
-    el.emit(getEventName(data.exitEvent, fromState), detail, false);
+    el.emit(getEventName(states.state.exitData, fromState), detail, false);
   if (data.enterEvent !== '')
-    el.emit(getEventName(data.enterEvent, toState), detail, false);
+    el.emit(getEventName(states.state.enterData, toState), detail, false);
   if (data.changeEvent !== '')
     el.emit(data.changeEvent, detail, false);
   states.state.currentState = toState;
   returnObject(detail);
 }
 
-function getEventName(pattern, state) {
-  const i = pattern.indexOf('%state%');
-  return i < 0 ? pattern : pattern.substring(0, i) + state + pattern(i + '%state%'.length);
+function parsePattern(eventData, eventPattern) {
+  if (!eventData)
+    eventData = [];
+  const i = eventPattern.indexOf('%%');
+  if (i < 0) {
+    eventData.length = 1; eventData[0] = eventPattern;
+    return eventData;
+  }
+  eventData[0] = eventPattern.substring(0, i);
+  eventData[1] = eventPattern.substring(i + '%%'.length);
+  return eventData;
+}
+
+function getEventName(eventData, state) {
+  return eventData.length === 1 ? eventData[0] : `${eventData[0]}${state}${eventData[1]}`;
 }

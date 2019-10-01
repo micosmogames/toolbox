@@ -44,6 +44,7 @@ Method | Description
 run(f,&nbsp;...args) | Adds the task defined by the function *f* and arguments *args* to the *Threadlet's* work queue. Returns a *Promise*. See [Promises](promise.md#Promises) for more detail.
 bindRun(This,&nbsp;f,&nbsp;...args) | As for *run* but will bind *This* to the function *f*.
 bindRun(This,&nbsp;methName,&nbsp;...args) | As for *run* but will bind *This* to *This[methName]*.
+publicInterface() | Returns an object that only exposes the *run* and *bindRun* methods. Callers of the public interface will will be returned a *promise*. See [Promises](promise.md#Promises) for more detail.
 stop() | The *Threadlet* will no longer accept tasks to run and will stop once the task queue is empty. Cannot be restarted. Use *pause* and *resume* otherwise. Returns *Threadlet*.
 pause() | The *Threadlet* is placed in a paused state at the next yield point. Returns *Threadlet*.
 resume() | The *Threadlet* is resumed from a pause. Returns *Threadlet*.
@@ -182,6 +183,16 @@ waiting | The threadlet is waiting on a promise.
 stopped | The threadlet has stopped. No tasks can be submitted to the threadlet.
 
 NOTE: The threadlet *endState* can be one of *ready* (only before first task), *running*, *ended* or *failed*.
+
+### THREADLETS
+
+Threadlets that are created by the async package for general use.
+
+Threadlet | Description
+--------- | -----------
+Threadlet.LowPriority | Returns the public interface for a general use *low* priority threadlet.
+Threadlet.DefaultPriority | Returns the public interface for a general use *default* priority threadlet.
+Threadlet.HighPriority | Returns the public interface for a general use *high* priority threadlet.
 
 ## LICENSE
 

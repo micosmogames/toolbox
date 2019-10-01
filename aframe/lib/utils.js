@@ -44,7 +44,7 @@ export function createSchemaPersistentObject(comp, data, prop) {
     o = {};
     comp.extendSchema({
       [prop]: {
-        default: {},
+        default: o,
         parse() { return o },
         stringify() { JSON.stringify(o) }
       }

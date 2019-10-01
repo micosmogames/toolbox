@@ -20,9 +20,9 @@ isClient() | Returns *true* if Javascript is running in a client environment.
 isGlobalThis(v) | Returns *true* if *v* is a global *this* value. With the introduction of *strict mode*, *undefined* is also considered to be a global *this*.
 isServer() | Returns *true* if Javascript is running in a server environment.
 requestObject() | Returns the next available object from the object pool. Creates new objects on demand. Assists in minimizing GC processing.
-returnObject(o) | Cleans and returns an object to the object pool.
+returnObject(o) | Cleans and returns an object or array to the appropriate pool. This process is run asynchronously and requires the caller to be asynchronous.
 requestArray() | Returns the next available array from the array pool. Creates new arrays on demand. Assists in minimizing GC processing.
-returnArray(o) | Cleans and returns an array to the array pool.
+returnArray(o) | Alternative name for *returnObject*.
 
 #### PROPERTIES
 

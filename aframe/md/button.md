@@ -1,7 +1,7 @@
 # @micosmo/aframe/button
 
 Aframe component that implements a virtual button controller that can be triggered by collision detection events, virtual trigger events or keyboard events.
-The entity element that the *button* component is attached to is assumed to be a visual representation of a button. The *button* component is configured with a button *press* color that will be applied to the visual element when the button is fires and the pressed state is entered. The color is restored when the button *release* occurs.
+The entity element that the *button* component is attached to can explicitly define the complete look and feel of the button, or alternatively a *style* can be provided that allows the button to configure all or part of the look and feel. The *button* component is configured with a button *press* color that will be applied to the visual element when the button is fires and the pressed state is entered. The color is restored when the button *release* occurs.
 
 ## API
 
@@ -26,10 +26,18 @@ The *button* component listens to the following events:
 
 Property | Type | Default | Description
 -------- | ---- | ------- | -----------
+style | string | '' | A selector for a data group that contains style datasets that define button look and feel. Each dataset maps to a component that controls an aspect of the button. An explicit component definition within the element will override the corresponding style dataset, otherwise the component will be created from the dataset. See [DATASETS](#DATASETS) for more detail.
 pressedColor | color | red | The color that is applied to the element that the button component is attached to.
 playCooldown | number | 0.5 | The time in seconds that the button cools down before responding to new input events.
 keyid | string | '' | The logical key name that is assigned to this *button*. If this is not specified then generic key event listeners are added that will map to all keys in the associated *keymap*. Works fine if the *keymap* is dedicated to the *button*.
 events | array[string] | ['triggerDown', 'triggerUp'] | Synthetic events that the *button* will listen for. The first event id will map to the button's *press* behaviour and the second to the button's *release* behaviour. If only one of the events is provided the *button* will simulate a *press* and *release* sequence.
+height | number | 0 | Default *height* of the geometry and/or the collider region. Only applies and can override *style*.
+width | number | 0 | Default *width* of the geometry and/or the collider region. Only applies and can override *style*.
+depth | number | 0 | Default *depth* of the geometry and/or the collider region. Only applies and can override *style*.
+key | string | '' | Physical key assigned to the button. Will be applied if *button* element does not have a *keymap* component.
+text | string | '' | The text value of the button. Applied when a *style* has been specified and will construct a sub-element to define the displayed text.
+textPosition | string | '' | Defines the position of the text relative to the button element if a text value has been provided. Allows fine adjustment of text position. Will override *style*.
+textScale | string | '' | Defines the scale of the text if a text value has been provided. Allows fine adjustment of text scale. Will override *style*.
 
 ##### METHODS
 
@@ -38,6 +46,16 @@ None
 ##### PROPERTIES
 
 None
+
+##### DATASETS
+
+Dataset | Description
+------- | -----------
+collider | Defines style properties for a *collider* component. *height*, *width* and *depth* can be overwritten by *button* schema properties.
+geometry | Defines style properties for a *geometry* component. *height*, *width* and *depth* can be overwritten by *button* schema properties.
+material | Defines style properties for a *material* component.
+text | Defines style properties for a *text* component.
+textAlignment | Defines the *position* and *scale* of text. Both *position* and *scale* can be overwritten by *button* schema properties.
 
 ## LICENSE
 
