@@ -21,6 +21,7 @@ module.exports = {
   isClient,
   isGlobalThis,
   isServer,
+  hasOwnProperty,
   requestObject,
   returnObject,
   requestArray,
@@ -38,6 +39,11 @@ function getJsEnvType() {
   throw new Error('micosmo:core:getJsEnv: Unable to determine environment type')
 }
 
+const _hasOwnProperty = Object.prototype.hasOwnProperty;
+function hasOwnProperty(o, prop) {
+  return _hasOwnProperty.call(o, prop);
+}
+
 const SymPool = Symbol('MicosmoPool');
 const ObjectPool = [];
 function requestObject() {
@@ -46,7 +52,7 @@ function requestObject() {
   return o;
 }
 function returnObject(o) {
-  if (typeof o !== 'object' || o === null || !o.hasOwnProperty(SymPool))
+  if (typeof o !== 'object' || o === null || !hasOwnProperty(o, SymPool))
     return;
   (Array.isArray(o) ? _returnArray : _returnObject)(o, Promise.resolve());
 }
@@ -54,10 +60,10 @@ function _returnObject(o, promise) {
   promise = promise.then(() => {
     o[SymPool] = true;
     for (const prop in o) {
-      if (!o.hasOwnProperty(prop))
+      if (!hasOwnProperty(o, prop))
         continue;
       const v = o[prop];
-      if (typeof v === 'object' && v !== null && v.hasOwnProperty(SymPool) && !v[SymPool])
+      if (typeof v === 'object' && v !== null && hasOwnProperty(v, SymPool) && !v[SymPool])
         promise = (Array.isArray(v) ? _returnArray : _returnObject)(v, promise);
       delete o[prop];
     }
@@ -77,7 +83,7 @@ function _returnArray(a, promise) {
     a[SymPool] = true;
     for (let i = a.length; i; i--) {
       const v = a.shift();
-      if (typeof v === 'object' && v !== null && v.hasOwnProperty(SymPool) && !v[SymPool])
+      if (typeof v === 'object' && v !== null && hasOwnProperty(v, SymPool) && !v[SymPool])
         promise = (Array.isArray(v) ? _returnArray : _returnObject)(v, promise);
     }
     ArrayPool.push(a);

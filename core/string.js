@@ -1,3 +1,5 @@
+/* global THREE */
+
 /**
  * string.js
  *
@@ -11,8 +13,11 @@
 
 'use strict';
 
+const { isOperator } = require('./character');
+
 module.exports = {
-  StringBuilder
+  StringBuilder,
+  parseNameValues
 }
 
 function StringBuilder () {
@@ -55,4 +60,73 @@ function StringBuilder () {
       return (this.toString().splice(...args));
     }
   }));
+}
+
+function parseNameValues(data, oTgt = Object.create(null), sep = ';') {
+  let chSep = sep;
+  while (data) {
+    data = data.trimStart();
+    if (data[0] === ':' && isOperator(data[1])) {
+      // New separator character has been set. '::' will reset separator to 'sep' argument.
+      chSep = data[1] === '.' ? sep : data[1];
+      data = data.substring(2);
+    }
+    let i = data.indexOf(chSep);
+    let s = i < 0 ? data : data.substring(0, i);
+    data = i < 0 ? '' : data.substring(i + 1);
+    // Now process the content of this name/value pair.
+    var ty = 's';
+    var tyArray = false;
+    if (s[0] === '(') {
+      var iStart = 1;
+      var iEnd = s.indexOf(')');
+      if (iEnd < 0)
+        throw new Error(`micosmo:aframe:utils:parse: Missing end ')' for entry type '${s}'`);
+      const sRem = s.substring(iEnd + 1);
+      if (s[1] === '[') { tyArray = true; iEnd--; iStart = 2 };
+      ty = s.substring(iStart, iEnd).trim();
+      if (ty === '' || !TypeHandler[ty])
+        throw new Error(`micosmo:aframe:utils:parse: Invalid entry type '${ty}'`);
+      s = sRem;
+    }
+    i = s.indexOf(':');
+    if (i < 0) {
+      if (ty === 's' || ty === 'rs') {
+        if ((s = s.trim()) !== '') oTgt[s] = '';
+        return oTgt;
+      }
+      throw new Error(`micosmo:aframe:utils:parse: Invalid value for '${s}'`);
+    }
+    const name = s.substring(0, i).trim();
+    if (name === '')
+      throw new Error(`micosmo:aframe:utils:parse: Value '${s}' has an invalid name`);
+    s = s.substring(i + 1);
+    oTgt[name] = tyArray ? parseValues(s.split(',')) : TypeHandler[ty](s);
+  }
+  return oTgt;
+}
+
+function parseValues(vals, ty) {
+  const f = TypeHandler[ty];
+  vals.forEach((s, idx) => { vals[idx] = f(s) });
+}
+
+const HaveThree = (function () {
+  let env;
+  try { env = THREE } catch (err) { return false };
+  return env === THREE; // Prevent warning
+})();
+
+var TypeHandler = {
+  s(s) { return s.trim() },
+  b(s) { return s.trim() === 'true' },
+  rs(s) { return s },
+  i(s) { return Number.parseInt(s.trim()) },
+  n(s) { return Number.parseFloat(s.trim()) },
+  v3(s) {
+    const xyz = [0.0, 0.0, 0.0];
+    s = s.trim();
+    if (s) s.split(' ').forEach((v, idx) => { xyz[idx] = TypeHandler.n(v.trim()) });
+    return HaveThree ? new THREE.Vector3(xyz[0], xyz[1], xyz[2]) : xyz.slice(0, 3);
+  }
 }

@@ -38,17 +38,25 @@ export function isVisibleInScene(el) {
   return true;
 }
 
-export function createSchemaPersistentObject(comp, data, prop) {
-  var o = data[prop];
-  if (!o) {
-    o = {};
-    comp.extendSchema({
-      [prop]: {
-        default: o,
-        parse() { return o },
-        stringify() { JSON.stringify(o) }
-      }
-    })
-  }
-  return o;
+export function createSchemaPersistentObject(comp, data, ...props) {
+  const ao = [];
+  const newProps = {};
+  props.forEach(prop => {
+    var o = data[prop];
+    if (!o) { o = {}; newProps[prop] = { default: o, parse() { return o }, stringify() { JSON.stringify(o) } } };
+    ao.push(o);
+  });
+  comp.extendSchema(newProps);
+  return ao.length === 1 ? ao[0] : ao;
+}
+
+// Gets back the component data, forcing aframe to initialise the component if necessary.
+export function getComponentData(el, compName) {
+  const data = el.getAttribute(compName);
+  if (!data)
+    return undefined;
+  if (typeof data === 'object')
+    return data;
+  el.setAttribute(compName, data);
+  return el.components[compName].data;
 }

@@ -1,27 +1,45 @@
 import aframe from "aframe";
 import { bindEvent } from "aframe-event-decorators";
-import { declareMethod, bind, method, copyValues } from "@micosmo/core";
+import { getComponentData } from './lib/utils';
+import { declareMethod, bind, method } from "@micosmo/core";
 import { startProcess, msWaiter, waiter } from '@micosmo/ticker/aframe-ticker';
 
 const PressTime = 0.1;
 
+aframe.registerPrimitive('a-button', {
+  defaultComponents: {
+    button: {}
+  },
+  mappings: {
+    pressedcolor: 'button.pressedColor',
+    playcooldown: 'button.playCooldown',
+    key: 'button.key',
+    keyid: 'button.keyid',
+    events: 'button.events',
+    bstyle: 'button.style',
+    bgeometry: 'button.geometry',
+    bmaterial: 'button.material',
+    bcollider: 'button.collider',
+    btext: 'button.text',
+  }
+});
+
 aframe.registerComponent("button", {
   schema: {
-    style: { type: 'string', default: '' }, // Maps to a data group
     pressedColor: { type: 'color', default: 'red' },
-    height: { type: 'number', default: 0.0 }, // Overrides style
-    width: { type: 'number', default: 0.0 }, // Overrides style
-    depth: { type: 'number', default: 0.0 }, // Overrides style
-    blenderPart: { type: 'string', default: '' }, // Overrides style. Form <src>:<part>
     playCooldown: { type: 'number', default: 0.5 },
     key: { type: 'string', default: '' }, // Only if keymap component not supplied
     keyid: { type: 'string', default: '' },
     events: { type: 'array', default: ['triggerDown', 'triggerUp'] },
-    text: { type: 'string', default: '' }, // Requires a style. Creates a child element if there is a text value
-    textPosition: { type: 'string', default: '' }, // Only if we create a text element
-    textScale: { type: 'string', default: '' }, // Only if we create a text element
+    // Style based input
+    style: { type: 'string', default: '' }, // Maps to a data group
+    geometry: { type: 'string', default: '' }, // Overrides style
+    material: { type: 'string', default: '' }, // Overrides style
+    collider: { type: 'string', default: '' }, // Overrides style
+    text: { type: 'string', default: '' }, // Overrides style
   },
   init() {
+    this.sysDataset = this.el.sceneEl.systems.dataset;
     this.isPressed = false;
     this.isCooldown = false;
     this.buttonBuilt = false;
@@ -147,42 +165,33 @@ function addEventListeners(button, events) {
 
 function buildButton(button) {
   const data = button.data;
-  const style = button.el.sceneEl.systems.dataset.getDatagroup(data.style);
-  const geom = button.el.getAttribute('geometry');
-  const gltfPart = button.el.getAttribute('gltf-blender-part');
-  const collider = button.el.getAttribute('collider');
-  const material = button.el.getAttribute('material');
-  const oSize = {};
-  if (data.height) oSize.height = data.height;
-  if (data.depth) oSize.depth = data.depth;
-  if (data.width) oSize.width = data.width;
-  if (!material)
-    button.el.setAttribute('material', style.getData('material'));
-  if (!geom && !gltfPart) {
-    if (style.hasDataFor('geometry')) {
-      const oGeom = copyValues(oSize, style.copyData('geometry'));
-      button.el.setAttribute('geometry', oGeom);
-      if (!oSize.height) oSize.height = oGeom.height;
-      if (!oSize.depth) oSize.depth = oGeom.depth;
-      if (!oSize.width) oSize.width = oGeom.width;
-    } else {
-      const oPart = style.copyData('gltf-blender-part');
-      if (data.blenderPart) {
-        const vals = data.blenderPart.split(':');
-        oPart.src = vals[0]; oPart.part = vals[1];
-      }
-      button.el.setAttribute('gltf-blender-part', oPart);
-    }
+  const style = button.sysDataset.getDatagroup(data.style);
+  const compGeom = getComponentData(button.el, 'geometry'); // Will force the geometry component to initialise if present
+  const compGltfPart = button.el.getAttribute('gltf-blender-part');
+  const compCollider = button.el.getAttribute('collider');
+  const compMaterial = button.el.getAttribute('material');
+  if (!compMaterial) {
+    button.el.setAttribute('material', '');
+    button.el.setAttribute('material',
+      button.sysDataset.merge(button.sysDataset.parse(data.material, style.getData('material'))));
   }
-  if (!collider)
-    button.el.setAttribute('collider', copyValues(oSize, style.copyData('collider')));
-  if (data.text) {
-    const el = document.createElement('a-entity');
-    const oText = style.copyData('text'); oText.value = data.text;
-    el.setAttribute('text', oText);
-    const oAlign = style.getData('textalignment')
-    const pos = data.textPosition || oAlign.position; if (pos) el.setAttribute('position', pos);
-    const scale = data.textScale || oAlign.scale; if (scale) el.setAttribute('scale', scale);
-    button.el.appendChild(el);
+  let oGeom;
+  if (!compGeom && !compGltfPart) {
+    if (style.hasDataFor('geometry') || button.geometry) {
+      button.el.setAttribute('geometry',
+        (oGeom = button.sysDataset.merge(button.sysDataset.parse(data.geometry), style.getData('geometry'))));
+    } else if (style.hasDataFor('gltf-blender-part') || data['gltf-blender-part'])
+      button.el.setAttribute('gltf-blender-part',
+        button.sysDataset.merge(button.sysDataset.parse(data['gltf-blender-part'], style.getData('gltf-blender-part'))));
   }
+  if (!compCollider) {
+    const oCollider = button.sysDataset.merge(button.sysDataset.parse(data.collider), style.getData('collider'));
+    const mappings = ['height', 'width', 'depth'];
+    if (oGeom) button.sysDataset.map(oGeom, mappings, oCollider); // Defaults to a 'fill' mapping
+    else button.sysDataset.map(compGeom, mappings, oCollider);
+    button.el.setAttribute('collider', oCollider);
+  }
+  if (data.text)
+    button.el.setAttribute('text',
+      button.sysDataset.merge(button.sysDataset.parse(data.text), style.getData('text')));
 }

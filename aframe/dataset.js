@@ -1,4 +1,3 @@
-/* global THREE */
 // dataset : Defines data properties that can be used as defaults, templates and component initialisation.
 // Data format: '[[<group>:]<id>|][(<type>) or ([<type])]<name>: value[, value, ...]
 // <type>: s - trimmed string, rs - raw string, i - int, n - number, v3 - THREE.Vector3
@@ -11,8 +10,8 @@
 
 import aframe from 'aframe';
 import { copyValues } from '@micosmo/core/replicate';
-import { isOperator } from '@micosmo/core/character';
-import { StringBuilder } from '@micosmo/core/string';
+import { StringBuilder, parseNameValues } from '@micosmo/core/string';
+import { hasOwnProperty } from '@micosmo/core/object';
 
 aframe.registerComponent("dataset", {
   schema: { default: '' },
@@ -31,7 +30,7 @@ aframe.registerComponent("dataset", {
     const compExtend = this.el.components['extend-dataset'];
     if (!compExtend && this.el.getAttribute('extend-dataset'))
       throw new Error(`micosmo:component:dataset:update: The 'extend-dataset' component must be placed before 'dataset' components`);
-    const oDataset = (compExtend && compExtend.copyData(this.id)) || {};
+    const oDataset = (compExtend && compExtend.copyData(this.id)) || Object.create(null);
     if (data[0] === '|') {
       const iPipe = data.indexOf('|', 1);
       if (iPipe < 0)
@@ -44,13 +43,13 @@ aframe.registerComponent("dataset", {
         throw new Error(`micosmo:component:dataset:update: Data component '${id.trim()}' was not found in group '${(group && group.trim()) || this.el.id}'`);
       copyValues(compGroup.getDataObject(), oDataset);
     }
-    this.dataset = Object.freeze(!data ? oDataset : this.system.parse(data, ';', oDataset));
+    this.dataset = Object.freeze(!data ? oDataset : this.system.parse(data, oDataset));
   },
   getData() { return this.dataset },
   copyData() { return copyValues(this.dataset) }
 });
 
-const EmptyData = Object.freeze({});
+const EmptyData = Object.freeze(Object.create(null));
 
 aframe.registerComponent("extend-dataset", {
   schema: { default: '' },
@@ -97,65 +96,23 @@ aframe.registerSystem("dataset", {
   },
   getData(sel, id) { return this.getDatagroup(sel).getData(id) },
   copyData(sel, id) { return copyValues(this.getData(sel, id)) },
-  parse(data, chSep, oTgt) {
-    while (data) {
-      data = data.trimStart();
-      if (data[0] === ':' && isOperator(data[1])) {
-        // New separator character has been set.
-        chSep = data[1];
-        data = data.substring(2);
-      }
-      let i = data.indexOf(chSep);
-      let s = i < 0 ? data : data.substring(0, i);
-      data = i < 0 ? '' : data.substring(i + 1);
-      // Now process the content of this name/value pair.
-      var ty = 's';
-      var tyArray = false;
-      if (s[0] === '(') {
-        var iStart = 1;
-        var iEnd = s.indexOf(')');
-        if (iEnd < 0)
-          throw new Error(`micosmo:system:dataset:parse: Missing end ')' for entry type '${s}'`);
-        const sRem = s.substring(iEnd + 1);
-        if (s[1] === '[') { tyArray = true; iEnd--; iStart = 2 };
-        ty = s.substring(iStart, iEnd).trim();
-        if (ty === '' || !TypeHandler[ty])
-          throw new Error(`micosmo:system:dataset:parse: Invalid entry type '${ty}'`);
-        s = sRem;
-      }
-      i = s.indexOf(':');
-      if (i < 0) {
-        if (ty === 's' || ty === 'rs') {
-          if ((s = s.trim()) !== '')
-            oTgt[s.trim()] = '';
-          return oTgt;
-        }
-        throw new Error(`micosmo:system:dataset:parse: Invalid value for '${s}'`);
-      }
-      const name = s.substring(0, i).trim();
-      if (name === '')
-        throw new Error(`micosmo:system:dataset:parse: Value '${s}' has an invalid name`);
-      s = s.substring(i + 1);
-      const vals = TypeHandler[ty](tyArray ? s.split(',') : [s]);
-      oTgt[name] = tyArray ? vals : vals[0];
-    }
-    return oTgt;
-  }
-});
-
-var TypeHandler = {
-  s(vals) { vals.forEach((s, idx) => { vals[idx] = s.trim() }); return vals },
-  b(vals) { vals.forEach((s, idx) => { vals[idx] = s.trim() === 'true' }); return vals },
-  rs(vals) { return vals },
-  i(vals) { vals.forEach((s, idx) => { vals[idx] = Number.parseInt(s.trim()); return vals }) },
-  n(vals) { vals.forEach((s, idx) => { vals[idx] = Number.parseFloat(s.trim()); return vals }) },
-  v3(vals) {
-    vals.forEach((s, idx) => {
-      const xyz = s.trim().split(' ');
-      if (xyz.length !== 3)
-        throw new Error(`micosmo:system:dataset:parse: Vector3 value '${s}' is invalid`);
-      vals[idx] = new THREE.Vector3(xyz[0], xyz[1], xyz[2]);
+  merge(...datasets) {
+    // Merge datasets into one which will be in order of precedence.
+    if (datasets.length === 1 && Array.isArray(datasets[0]))
+      datasets = datasets[0];
+    const oMerge = Object.create(null);
+    for (let i = datasets.length - 1; i >= 0; i--)
+      copyValues(datasets[i], oMerge);
+    return oMerge;
+  },
+  map(sDataset, mappings, tDataset, how = 'fill') {
+    const flFill = how === 'fill';
+    mappings.forEach(prop => {
+      if (flFill && hasOwnProperty(prop))
+        return;
+      tDataset[prop] = sDataset[prop];
     });
-    return vals;
-  }
-}
+    return tDataset;
+  },
+  parse(...args) { return parseNameValues(...args) },
+});
