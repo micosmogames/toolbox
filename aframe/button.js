@@ -166,32 +166,29 @@ function addEventListeners(button, events) {
 function buildButton(button) {
   const data = button.data;
   const style = button.sysDataset.getDatagroup(data.style);
-  const compGeom = getComponentData(button.el, 'geometry'); // Will force the geometry component to initialise if present
-  const compGltfPart = button.el.getAttribute('gltf-blender-part');
-  const compCollider = button.el.getAttribute('collider');
-  const compMaterial = button.el.getAttribute('material');
-  if (!compMaterial) {
-    button.el.setAttribute('material', '');
+  if (!button.el.getAttribute('material')) {
+    button.el.setAttribute('material', ''); // Fixes an aframe bug with material color change not being rendered.
     button.el.setAttribute('material',
-      button.sysDataset.merge(button.sysDataset.parse(data.material, style.getData('material'))));
+      button.sysDataset.merge(button.sysDataset.parse(data.material), style.getData('material')));
   }
+  const compGeom = getComponentData(button.el, 'geometry'); // Will force the geometry component to initialise if present
   let oGeom;
-  if (!compGeom && !compGltfPart) {
+  if (!compGeom && !button.el.getAttribute('gltf-blender-part')) {
     if (style.hasDataFor('geometry') || button.geometry) {
       button.el.setAttribute('geometry',
         (oGeom = button.sysDataset.merge(button.sysDataset.parse(data.geometry), style.getData('geometry'))));
     } else if (style.hasDataFor('gltf-blender-part') || data['gltf-blender-part'])
       button.el.setAttribute('gltf-blender-part',
-        button.sysDataset.merge(button.sysDataset.parse(data['gltf-blender-part'], style.getData('gltf-blender-part'))));
+        button.sysDataset.merge(button.sysDataset.parse(data['gltf-blender-part']), style.getData('gltf-blender-part')));
   }
-  if (!compCollider) {
+  if (!button.el.getAttribute('collider')) {
     const oCollider = button.sysDataset.merge(button.sysDataset.parse(data.collider), style.getData('collider'));
     const mappings = ['height', 'width', 'depth'];
     if (oGeom) button.sysDataset.map(oGeom, mappings, oCollider); // Defaults to a 'fill' mapping
     else button.sysDataset.map(compGeom, mappings, oCollider);
     button.el.setAttribute('collider', oCollider);
   }
-  if (data.text)
+  if (data.text) // Could end up with text in a separate entity so base it on whether button.text is configured.
     button.el.setAttribute('text',
       button.sysDataset.merge(button.sysDataset.parse(data.text), style.getData('text')));
 }

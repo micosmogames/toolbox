@@ -46,7 +46,24 @@ splice(...args) | See String.splice
 
 Function | Description
 -------- | -----------
-parseNameValues(s[,&nbsp;oTgt[,&nbsp;sep]]) | Returns *oTgt* after populating *oTgt* with name value pairs contained in *s*. String format is a sequence of ```[:<sep>] [(<ty>)|([<ty>])] <name> : <value> <sep>``` where *sep* (; default) is the separator between name/value pairs, *ty* (*s* default) is the type of value to output. Type can be *s* for a trimmed string, *rs* for a raw string, *i* for integer, *n* for number, *b* for boolean and *v3* for a THREE.Vector3 or array if THREE not available. Type ```([<ty>])``` specifies that the value is an array of type *ty*, with values separated by a comma (,). If *oTgt* is not provided then *parseNameValues* will create a return object. The *sep* argument is the initial separator and defaults to semi-colon (;). Note that when ```:<sep>``` is encountered the new separator *sep* will apply until the end of *s* or another separator is defined. A separator definiton of ```::``` will restore the parse to the initial separator (or default) passed to *parseNameValues*.
+parseNameValues(s[,&nbsp;oTgt[,&nbsp;sep]]) | Returns *oTgt* after populating *oTgt* with name value pairs contained in *s*. String format is a sequence of ```[:<sep>] [(<ty>)|([<ty>])] <name> : <value> <sep>``` where *sep* (; default) is the separator between name/value pairs and *ty* is the type of value to output. See [ParseNameValues.Types](#ParseNameValues.Types) for more detail. If *oTgt* is not provided then *parseNameValues* will create a return object. The *sep* argument is the initial separator and defaults to semi-colon (;). Note that when ```:<sep>``` is encountered the new separator *sep* will apply until the end of *s* or another separator is defined. A separator definiton of ```::``` will restore the parse to the initial separator passed to *parseNameValues*.
+
+#### ParseNameValues.Types
+
+Type | Description
+---- | -----------
+s | Returns a string that is left and right trimmed of whitespace.
+rs | Returns the raw string. No whitespace is removed.
+i | Returns an integer number.
+n | Returns a number.
+b | Returns a boolean value of *true* or *false*.
+v2 | Returns an { x, y } vector object with input of the form '&lt;x&gt;&nbsp;&lt;y&gt;'. Missing values are set to 0.
+v3 | Returns an { x, y, z } vector object with input of the form '&lt;x&gt;&nbsp;&lt;y&gt;&nbsp;&lt;z&gt;'. Missing values are set to 0.
+v4 | Returns an { x, y, z, w } vector object with input of the form '&lt;x&gt;&nbsp;&lt;y&gt;&nbsp;&lt;z&gt;&nbsp;&lt;w&gt;'. Missing values are set to 0.
+
+##### Notes:
+  * Type *s* is the default.
+  * The type specification ```([<ty>])``` defines that the input is an array of *ty* with values separated by a comma (,).
 
 ## LICENSE
 

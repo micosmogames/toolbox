@@ -49,7 +49,7 @@ aframe.registerComponent("states", {
     this.state.enterData = parsePattern(this.state.enterData, this.data.enterEvent);
     this.state.exitData = parsePattern(this.state.exitData, this.data.exitEvent);
   },
-  chain(state) { console.log('state', state); emitStateChange(this, this.state.currentState, state, 'chain') },
+  chain(state) { emitStateChange(this, this.state.currentState, state, 'chain') },
   push(state) { this.stack.push(this.state.currentState); emitStateChange(this, this.state.currentState, state, 'push') },
   pop() {
     if (this.stack.length === 0)

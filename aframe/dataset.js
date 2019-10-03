@@ -1,5 +1,5 @@
 // dataset : Defines data properties that can be used as defaults, templates and component initialisation.
-// Data format: '[[<group>:]<id>|][(<type>) or ([<type])]<name>: value[, value, ...]
+// Data format: '[[<group>:]<id>[,...]|][(<type>) or ([<type])]<name>: value[, value, ...]
 // <type>: s - trimmed string, rs - raw string, i - int, n - number, v3 - THREE.Vector3
 // Notes:
 //    1. (<type>) is singular and ([<type>]) is a comma separated array.
@@ -34,14 +34,19 @@ aframe.registerComponent("dataset", {
     if (data[0] === '|') {
       const iPipe = data.indexOf('|', 1);
       if (iPipe < 0)
-        throw new Error(`micosmo:component:dataset:update: Dataset extend format is '|[<group>:]<dataset>|`);
-      const s = data.substring(1, iPipe); data = data.substring(iPipe + 1);
-      let [group, id] = s.split(':');
-      if (!id) { id = group; group = undefined }
-      const compGroup = (group && this.system.data.getData(group.trim())) || this.group;
-      if (!compGroup.hasDataFor(id.trim()))
-        throw new Error(`micosmo:component:dataset:update: Data component '${id.trim()}' was not found in group '${(group && group.trim()) || this.el.id}'`);
-      copyValues(compGroup.getDataObject(), oDataset);
+        throw new Error(`micosmo:component:dataset:update: Dataset extend format is '|[<group>:]<dataset>[,...]|`);
+      const sExtends = data.substring(1, iPipe); data = data.substring(iPipe + 1);
+      const aExtends = sExtends.split(',');
+      // Process the extends in reverse order.
+      for (let i = aExtends.length - 1; i >= 0; i--) {
+        let [group, id] = aExtends[i].split(':');
+        if (!id) { id = group; group = undefined }
+        const compGroup = (group && this.system.getDatagroup(group.trim())) || this.group;
+        id = id.trim();
+        if (!compGroup.hasDataFor(id))
+          throw new Error(`micosmo:component:dataset:update: Data component '${id}' was not found in group '${(group && group.trim()) || this.el.id}'`);
+        copyValues(compGroup.getData(id), oDataset);
+      }
     }
     this.dataset = Object.freeze(!data ? oDataset : this.system.parse(data, oDataset));
   },
@@ -59,10 +64,16 @@ aframe.registerComponent("extend-dataset", {
       throw new Error(`micosmo:component:extend-dataset:update: Extend-dataset components can not be updated.`);
     if (this.data === '')
       throw new Error(`micosmo:component:extend-dataset:update: Missing data group selector.`);
-    this.group = this.el.sceneEl.systems.dataset.getDatagroup(this.data);
+    this.groups = this.data.split(',').forEach(s => this.el.sceneEl.systems.dataset.getDatagroup(s.trim()));
   },
-  getData(id) { return this.group.getData(id) },
-  copyData(id) { return this.group.copyData(id) }
+  getData(id) { return this.groups === 1 ? this.groups[0].getData(id) : this.copyData(id) },
+  copyData(id) {
+    let i = this.groups.length - 1;
+    const oDataset = this.group[i].copyData(id);
+    for (i--; i >= 0; i--)
+      copyValues(this.group[i].getData(id), oDataset);
+    return oDataset;
+  }
 });
 
 aframe.registerComponent("datagroup", {

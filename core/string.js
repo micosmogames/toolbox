@@ -1,5 +1,3 @@
-/* global THREE */
-
 /**
  * string.js
  *
@@ -111,22 +109,25 @@ function parseValues(vals, ty) {
   vals.forEach((s, idx) => { vals[idx] = f(s) });
 }
 
-const HaveThree = (function () {
-  let env;
-  try { env = THREE } catch (err) { return false };
-  return env === THREE; // Prevent warning
-})();
-
 var TypeHandler = {
   s(s) { return s.trim() },
   b(s) { return s.trim() === 'true' },
   rs(s) { return s },
   i(s) { return Number.parseInt(s.trim()) },
   n(s) { return Number.parseFloat(s.trim()) },
-  v3(s) {
-    const xyz = [0.0, 0.0, 0.0];
-    s = s.trim();
-    if (s) s.split(' ').forEach((v, idx) => { xyz[idx] = TypeHandler.n(v.trim()) });
-    return HaveThree ? new THREE.Vector3(xyz[0], xyz[1], xyz[2]) : xyz.slice(0, 3);
-  }
+  v2(s) { return toVector(s, 2) },
+  v3(s) { return toVector(s, 3) },
+  v4(s) { return toVector(s, 4) }
+};
+
+const VectorProps = ['x', 'y', 'z', 'w'];
+function toVector(s, sz) {
+  const vec = {};
+  let count = 0;
+  s.trim().split(' ').forEach(v => {
+    if (v) vec[VectorProps[count++]] = TypeHandler.n(v);
+  });
+  for (; count < sz; count++)
+    vec[VectorProps[count++]] = 0.0;
+  return vec;
 }
