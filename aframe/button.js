@@ -3,6 +3,7 @@ import { bindEvent } from "aframe-event-decorators";
 import { getComponentData } from './lib/utils';
 import { declareMethod, bind, method } from "@micosmo/core";
 import { startProcess, msWaiter, waiter } from '@micosmo/ticker/aframe-ticker';
+import { onLoadedDo } from "@micosmo/aframe/startup";
 
 const PressTime = 0.1;
 
@@ -21,6 +22,7 @@ aframe.registerPrimitive('a-button', {
     bmaterial: 'button.material',
     bcollider: 'button.collider',
     btext: 'button.text',
+    bstate: 'button.state',
   }
 });
 
@@ -37,6 +39,8 @@ aframe.registerComponent("button", {
     material: { type: 'string', default: '' }, // Overrides style
     collider: { type: 'string', default: '' }, // Overrides style
     text: { type: 'string', default: '' }, // Overrides style
+    // State change response. No event raised.
+    state: { type: 'string' }, // Of the form <states selector>.<op>.<state>
   },
   init() {
     this.sysDataset = this.el.sceneEl.systems.dataset;
@@ -60,6 +64,21 @@ aframe.registerComponent("button", {
     if (oldData.events !== this.data.events) {
       removeEventListeners(this, oldData.events);
       addEventListeners(this, this.data.events);
+    }
+    if (oldData.state !== this.data.state) {
+      this.stateDetails = undefined;
+      if (this.data.state) {
+        var s = this.data.state; const i = s.lastIndexOf('.'); const j = s.lastIndexOf('.', i - 1);
+        if (i < 2 || j < 2)
+          throw new Error(`micosmo:component:button:update: Invalid state expression '${s}'`);
+        this.stateDetails = [s.substring(0, j), s.substring(j + 1, i), s.substring(i + 1)];
+        var el = document.querySelector(this.stateDetails[0]);
+        if (!el)
+          throw new Error(`micosmo:component:button:update: Invalid states selector '${this.stateDetails[0]}'`);
+        if (el.sceneEl !== this.el.sceneEl)
+          el = this.el.sceneEl.querySelector(this.stateDetails[0]);
+        onLoadedDo(() => { this.stateDetails[0] = el.components.states });
+      }
     }
   },
   remove() {
@@ -86,7 +105,10 @@ aframe.registerComponent("button", {
         color: this.data.pressedColor,
         emissive: this.data.pressedColor
       });
-      this.el.emit("vrbuttondown");
+      if (this.stateDetails)
+        this.stateDetails[0][this.stateDetails[1]](this.stateDetails[2]);
+      else
+        this.el.emit("vrbuttondown");
       this.isPressed = true;
     }
   },
@@ -94,7 +116,8 @@ aframe.registerComponent("button", {
     this.timer = PressTime;
     this.isCooldown = true;
     this.isPressed = false;
-    this.el.emit("vrbuttonup");
+    if (!this.stateDetails)
+      this.el.emit("vrbuttonup");
     this.el.setAttribute("material", {
       color: this.oldColor,
       emissive: this.oldEmissiveColor
@@ -164,31 +187,27 @@ function addEventListeners(button, events) {
 }
 
 function buildButton(button) {
+  const sysDataset = button.sysDataset;
   const data = button.data;
   const style = button.sysDataset.getDatagroup(data.style);
   if (!button.el.getAttribute('material')) {
-    button.el.setAttribute('material', ''); // Fixes an aframe bug with material color change not being rendered.
-    button.el.setAttribute('material',
-      button.sysDataset.merge(button.sysDataset.parse(data.material), style.getData('material')));
+    sysDataset.setAttribute(button.el, 'material', data.material, style.getData('material'));
   }
   const compGeom = getComponentData(button.el, 'geometry'); // Will force the geometry component to initialise if present
   let oGeom;
   if (!compGeom && !button.el.getAttribute('gltf-blender-part')) {
-    if (style.hasDataFor('geometry') || button.geometry) {
-      button.el.setAttribute('geometry',
-        (oGeom = button.sysDataset.merge(button.sysDataset.parse(data.geometry), style.getData('geometry'))));
-    } else if (style.hasDataFor('gltf-blender-part') || data['gltf-blender-part'])
-      button.el.setAttribute('gltf-blender-part',
-        button.sysDataset.merge(button.sysDataset.parse(data['gltf-blender-part']), style.getData('gltf-blender-part')));
+    if (style.hasDataFor('geometry') || button.geometry)
+      oGeom = sysDataset.setAttribute(button.el, 'geometry', data.geometry, style.getData('geometry'));
+    else if (style.hasDataFor('gltf-blender-part') || data['gltf-blender-part'])
+      sysDataset.setAttribute(button.el, 'gltf-blender-part', data['gltf-blender-part'], style.getData('gltf-blender-part'));
   }
   if (!button.el.getAttribute('collider')) {
-    const oCollider = button.sysDataset.merge(button.sysDataset.parse(data.collider), style.getData('collider'));
+    const oCollider = sysDataset.merge(data.collider, style.getData('collider'));
     const mappings = ['height', 'width', 'depth'];
-    if (oGeom) button.sysDataset.map(oGeom, mappings, oCollider); // Defaults to a 'fill' mapping
-    else button.sysDataset.map(compGeom, mappings, oCollider);
-    button.el.setAttribute('collider', oCollider);
+    if (oGeom) sysDataset.map(oGeom, mappings, oCollider); // Defaults to a 'fill' mapping
+    else sysDataset.map(compGeom, mappings, oCollider);
+    sysDataset.setAttribute(button.el, 'collider', oCollider);
   }
   if (data.text) // Could end up with text in a separate entity so base it on whether button.text is configured.
-    button.el.setAttribute('text',
-      button.sysDataset.merge(button.sysDataset.parse(data.text), style.getData('text')));
+    sysDataset.setAttribute(button.el, 'text', data.text, style.getData('text'));
 }

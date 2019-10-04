@@ -19,7 +19,7 @@ module.exports = {
 }
 
 function StringBuilder () {
-  let str; let aStrings = [];
+  let str; const aStrings = [];
   return (Object.freeze({
     name: 'StringBuilder',
     append(o) {
@@ -32,7 +32,7 @@ function StringBuilder () {
       return (aStrings.pop());
     },
     clear() {
-      aStrings = [];
+      aStrings.length = 0;
       str = undefined;
       return (this);
     },

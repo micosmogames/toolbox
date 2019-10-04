@@ -11,7 +11,7 @@ const states = [
 
 aframe.registerComponent("jukebox", {
   schema: {
-    soundComponent: { type: "string", default: "sound" },
+    soundComponent: { type: "string", default: "misound" },
     tracks: { type: "array" },
     state: { oneof: states, default: "off" },
     currentTrack: { type: "int", default: 0 },

@@ -54,7 +54,7 @@ function requestObject() {
 function returnObject(o) {
   if (typeof o !== 'object' || o === null || !hasOwnProperty(o, SymPool))
     return;
-  (Array.isArray(o) ? _returnArray : _returnObject)(o, Promise.resolve());
+  return (Array.isArray(o) ? _returnArray : _returnObject)(o, Promise.resolve());
 }
 function _returnObject(o, promise) {
   promise = promise.then(() => {
