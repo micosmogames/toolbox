@@ -1,12 +1,13 @@
 // dataset : Defines data properties that can be used as defaults, templates and component initialisation.
-// Data format: '[[<group>:]<id>[,...]|][(<type>) or ([<type])]<name>: value[, value, ...]
-// <type>: s - trimmed string, rs - raw string, i - int, n - number, v3 - THREE.Vector3
+// Format: [| [<group> :][<dataset>, ...] ; ... |] <parseNameValues Format>
 // Notes:
-//    1. (<type>) is singular and ([<type>]) is a comma separated array.
-//    2. <group> is the selector of a data group element. Contains one or more dataset__<id> components. Ex <a-entity id="myGroup" dataset__<id> ...></a-entity>
-//    3. <id> Is the id of a specific data component in current or <group>.
-//    4. [<group>:]<id> is optional data that this data extends. Local values override inherited values
-//    5. extends-dataset="<group>" All dataset__ in the same element inherit from like named dataset__ in the <group> selector.
+//    1. See parseNameValues in string.js for name/value format.
+//    2. <group> is the id of a data group element. Contains one or more dataset__<id> components. Ex <a-entity id="myGroup" datagroup dataset__<id> ...></a-entity>
+//    3. <dataset> Is the id of a specific dataset component in current or <group>.
+//    4. [<group>:]<dataset> is optional data that this data extends. Can have multiple <dataset>s for a <group>. Local values override inherited values
+//    5. extends-datagroup="<group>" All dataset__ in the same element inherit from like named dataset__ in the <group> selector.
+//    6. Datagroup extends only applies to declared datasets. Undeclared datatsets from extended datagroup are not implicitly added.
+//       Use dataset_<id>="" to explicitly include a dataset from an extended datagroup if not overriding.
 
 import aframe from 'aframe';
 import { copyValues } from '@micosmo/core/replicate';
@@ -28,19 +29,11 @@ aframe.registerComponent("dataset", {
   update(oldData) {
     if (oldData && oldData !== '')
       throw new Error(`micosmo:component:dataset:update: Dataset components can not be updated. They can only be extended.`);
-    let data = this.data.trimStart();
     const compExtend = this.el.components['extend-datagroup'];
     if (!compExtend && this.el.getAttribute('extend-datagroup'))
       throw new Error(`micosmo:component:dataset:update: The 'extend-datagroup' component must be placed before 'dataset' components`);
     const oDataset = (compExtend && compExtend.copyData(this.id)) || Object.create(null);
-    if (data[0] === '|') {
-      const iPipe = data.indexOf('|', 1);
-      if (iPipe < 0)
-        throw new Error(`micosmo:component:dataset:update: Datagroup extend format is '|[<datagroup>:]<dataset>[,...]|`);
-      const sExtends = data.substring(1, iPipe); data = data.substring(iPipe + 1);
-      parseReferenceDatasets(sExtends, oDataset, this.system, this.id, this.group, 'dataset');
-    }
-    this.dataset = Object.freeze(!data ? oDataset : this.system.parse(data, oDataset));
+    this.dataset = Object.freeze(this.system.parse(this.data, oDataset, this.id, this.group));
   },
   getData() { return this.dataset },
   copyData() { return copyValues(this.dataset) }
@@ -121,7 +114,39 @@ aframe.registerSystem("dataset", {
     });
     return tDataset;
   },
-  parse(...args) { return parseNameValues(...args) },
+  parse(sData, oData = Object.create(null), defDSName, defGroup) {
+    if (!(sData = sData.trimStart())) return oData;
+    if (sData[0] === '|') {
+      const iPipe = sData.indexOf('|', 1);
+      if (iPipe < 0)
+        throw new Error(`micosmo:component:dataset:parse: Datagroup extend format is '|[<datagroup>:]<dataset>[,...]|`);
+      const sExtends = sData.substring(1, iPipe); sData = sData.substring(iPipe + 1);
+      const aDatasets = sExtends.split(';');
+      // Process the dataset definitions in reverse order.
+      for (let i = aDatasets.length - 1; i >= 0; i--) {
+        let [groupName, dsNames] = aDatasets[i].split(':');
+        if (dsNames === undefined) {
+          // Can only have been provided with one or more dataset names
+          dsNames = groupName; groupName = undefined;
+        }
+        const compGroup = (groupName && this.getDatagroup(groupName.trim())) || defGroup;
+        if (!compGroup)
+          throw new Error(`micosmo:system:dataset:parse: Datagroup not defined for dataset(s) '${dsNames}'`);
+        const adsNames = dsNames.split(',');
+        adsNames.forEach(dsName => {
+          if ((dsName = dsName.trim()) === '') {
+            if (!defDSName)
+              throw new Error(`micosmo:system:dataset:parse: Dataset name required for datagroup '${compGroup.el.id}'`);
+            dsName = defDSName;
+          }
+          if (!compGroup.hasDataFor(dsName))
+            throw new Error(`micosmo:system:dataset:parse: Dataset '${dsName}' not found in datagroup '${compGroup.el.id}`);
+          copyValues(compGroup.getData(dsName), oData);
+        });
+      }
+    }
+    return parseNameValues(sData, oData);
+  },
   asString(oDataset) {
     Sb.clear();
     for (const prop in oDataset)
@@ -152,31 +177,6 @@ aframe.registerComponent("mi", {
     this.sysDataset = this.el.sceneEl.systems.dataset;
   },
   update() {
-    const oData = Object.create(null);
-    let data = this.data.trimStart();
-    if (data[0] === '|') {
-      const iPipe = data.indexOf('|', 1);
-      if (iPipe < 0)
-        throw new Error(`micosmo:component:mi:update: Missing end of datagroup section. Expecting a '|'`);
-      const sDgs = data.substring(1, iPipe); data = data.substring(iPipe + 1);
-      parseReferenceDatasets(sDgs, oData, this.sysDataset, this.tgtCompName, undefined, 'mi');
-    }
-    this.el.setAttribute(this.tgtAttrName, this.sysDataset.asString(this.sysDataset.parse(data, oData)));
+    this.el.setAttribute(this.tgtAttrName, this.sysDataset.asString(this.sysDataset.parse(this.data, undefined, this.tgtCompName)));
   }
 });
-
-function parseReferenceDatasets(s, oData, sysDataset, defDSName, defGroup, who) {
-  const aDatasets = s.split(',');
-  // Process the dataset definitions in reverse order.
-  for (let i = aDatasets.length - 1; i >= 0; i--) {
-    let [groupName, dsName] = aDatasets[i].split(':');
-    if (dsName === '') { dsName = defDSName } else if (!dsName) { dsName = groupName; groupName = undefined }
-    const compGroup = (groupName && sysDataset.getDatagroup(groupName.trim())) || defGroup; dsName = dsName.trim();
-    if (!compGroup)
-      throw new Error(`micosmo:component:${who}:parseReferenceDatasets: Datagroup not defined`);
-    if (!compGroup.hasDataFor(dsName))
-      throw new Error(`micosmo:component:${who}:parseReferenceDatasets: Dataset '${dsName}' not found in datagroup '${(groupName && groupName.trim()) || defGroup.el.id}`);
-    copyValues(compGroup.getData(dsName), oData);
-  }
-  return oData;
-}

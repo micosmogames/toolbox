@@ -5,8 +5,20 @@
  *
  * StringBuilder
  * -------------
- * Constructs a string by collecting the parts into an array.
- * The final result is answered by joining the parts.
+ * Constructs a string by collecting the parts into an array. The final result is answered by joining the parts.
+ *
+ * parseNameValues string format:
+ * ------------------------------
+ * [: <sep>][ ( <type> ) or ( [ <type ] ) ] <name> : <value>[, <value> , ...] <sep> ...
+ *    where:
+ *      <type> : s - trim str, rs - raw str, i - int, f - float, b - boolean
+ *               v2 - { x, y }, v3 - { x, y, z}, v4 - { x, y, z, w }
+ *               Defaults to 's'.
+ *      <sep> : Specifies the separator character for the next and subsequent name/value(s) pair.
+ *              '::' resets to the separator passed with the fn call. Defaults to ';'.
+ *      <name> : The name of the pair
+ *      <value> : The value of the pair. If type is of the form '([<type])' then the value is an array
+ *                of <type> with values separated by a ','.
  */
 
 'use strict';
@@ -114,7 +126,7 @@ var TypeHandler = {
   b(s) { return s.trim() === 'true' },
   rs(s) { return s },
   i(s) { return Number.parseInt(s.trim()) },
-  n(s) { return Number.parseFloat(s.trim()) },
+  f(s) { return Number.parseFloat(s.trim()) },
   v2(s) { return toVector(s, 2) },
   v3(s) { return toVector(s, 3) },
   v4(s) { return toVector(s, 4) }

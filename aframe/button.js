@@ -105,9 +105,7 @@ aframe.registerComponent("button", {
         color: this.data.pressedColor,
         emissive: this.data.pressedColor
       });
-      if (this.stateDetails)
-        this.stateDetails[0][this.stateDetails[1]](this.stateDetails[2]);
-      else
+      if (!this.stateDetails)
         this.el.emit("vrbuttondown");
       this.isPressed = true;
     }
@@ -116,7 +114,9 @@ aframe.registerComponent("button", {
     this.timer = PressTime;
     this.isCooldown = true;
     this.isPressed = false;
-    if (!this.stateDetails)
+    if (this.stateDetails)
+      this.stateDetails[0][this.stateDetails[1]](this.stateDetails[2]);
+    else
       this.el.emit("vrbuttonup");
     this.el.setAttribute("material", {
       color: this.oldColor,
