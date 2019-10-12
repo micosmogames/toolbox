@@ -45,7 +45,7 @@ function Semaphore(signals) {
 };
 
 function _SemaphorePrototype() {
-  return Object.create(Object, {
+  return Object.create(Object.prototype, {
     isaSemaphore: { value: true, enumerable: true },
     signal: {
       value(v) {
@@ -98,7 +98,7 @@ function CriticalSection() {
 };
 
 function _CriticalSectionPrototype() {
-  return Object.create(Object, {
+  return Object.create(Object.prototype, {
     isaCriticalSection: { value: true, enumerable: true },
     start: { value() { return fPrivate(this).sem.wait() }, enumerable: true },
     end: { value() { fPrivate(this).sem.signal() }, enumerable: true },

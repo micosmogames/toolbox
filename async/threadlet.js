@@ -156,7 +156,7 @@ function validateArgs(args) {
 }
 
 function _ThreadletPrototype() {
-  const prot = Object.create(Object, {
+  const prot = Object.create(Object.prototype, {
     isaThreadlet: { value: true, enumerable: true },
     run: { value(f, ...args) { return newTask(this, f, args).promise }, enumerable: true },
     bindRun: { value(This, f, ...args) { return this.run((typeof f === 'string' ? This[f] : f).bind(This), ...args) }, enumerable: true },

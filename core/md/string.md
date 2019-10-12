@@ -30,17 +30,26 @@ StringBuilder() | Returns a new StringBuilder helper object that joins one or mo
 
 Method | Description
 ------ | -----------
-name() | Returns the name of the object ('StringBuilder'). 
 append(s) | Appends a string segment. Argument *s* is cast to a String.
-pop() | Pop the last segment appended.
-clear() | Clear and initialise the StringBuilder
-atGet(idx) | Return the character at the specified index position
-length() | Return the length of the current string being built
-segmentCount() | Return the current number of string segments
-toString() | Return a string resulting from joining the string segments
-substr(...args) | See String.substr
-substring(...args) | See String.substring
-splice(...args) | See String.splice
+atGet(idx) | Return the *StringBuilder* segment at *idx* position.
+atPut(idx, s) | Assign string representation of *s* to the *Stringbuilder* segment at *idx* position. Returns the *StringBuilder*.
+charAt(idx) | Return the character at *idx* position.
+clear() | Clear and initialise the StringBuilder. Returns *Stringbuilder*.
+length() | Return the length of the current string being built.
+pop() | Pop and return the last segment appended.
+segmentCount() | Return the current number of string segments.
+shift() | Remove and return the first segment.
+splice(...args) | See *String.prototype.splice*.
+substr(...args) | See *String.prototype.substr*. Note that *String.prototype.substr* may be removed in a future release of Javascript.
+substring(...args) | See *String.prototype.substring*.
+toString() | Return a string resulting from joining the string segments.
+
+##### PROPERTIES
+
+Property | Description
+-------- | -----------
+isaStringBuilder | Returns *true*.
+name | Returns the name of the object ('StringBuilder'). Deprecated - use *isaStringBuilder*.
 
 ### FUNCTIONS
 
@@ -64,6 +73,13 @@ v4 | Returns an { x, y, z, w } vector object with input of the form '&lt;x&gt;&n
 ##### Notes:
   * Type *s* is the default.
   * The type specification ```([<ty>])``` defines that the input is an array of *ty* with values separated by a comma (,).
+
+## HISTORY
+
+### Version 0.2.0
+* Added *parseNameValues* as a simple css style formatted string parser that includes imbedded types and separator specification.
+* Changes to *Stringbuffer* to get and put individual segments. Change *atGet* to *charAt* for consistency. *atGet* now returns segment.
+* *name* property deprecated, replaced by *isaStringBuilder* property.
 
 ## LICENSE
 

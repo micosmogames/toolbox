@@ -64,7 +64,7 @@ function Contract(owner, fFinally) {
 };
 
 function _ContractPrototype() {
-  return Object.create(Object, {
+  return Object.create(Object.prototype, {
     isaContract: { value: true, enumerable: true },
     seal: { value: declareMethod(seal), enumerable: true },
     asyncSeal: { value: declareMethod(asyncSeal), enumerable: true },
@@ -134,7 +134,7 @@ function __SealedContract(sealedContract, promise, contract, ...mixins) {
 }
 
 function _SealedContractPrototype() {
-  return Object.create(Object, {
+  return Object.create(Object.prototype, {
     isaSealedContract: { value: true, enumerable: true },
     rootPromise: { get() { return this._root instanceof Promise ? this._root : (this._root = Promise.resolve(this._root)) }, enumerable: true },
     then: { value: function (resolve) { resolve(this.promise) }, enumerable: true },
@@ -266,7 +266,7 @@ Promises.Recorder = function (owner, parent = owner) {
 };
 
 function _PromisesRecorderPrototype() {
-  return Object.create(Object, {
+  return Object.create(Object.prototype, {
     isaPromises: { value: true, enumerable: true },
     then: {
       value: function (onFulfilled, onRejected) {
@@ -332,7 +332,7 @@ Promises.Applier = function (owner, parent = owner) {
 };
 
 function _PromisesApplierPrototype() {
-  return Object.create(Object, {
+  return Object.create(Object.prototype, {
     isaPromises: { value: true, enumerable: true },
     then: {
       value: function (onFulfilled, onRejected) {

@@ -30,46 +30,29 @@ module.exports = {
   parseNameValues
 }
 
+const StringBuilderPrototype = Object.create(Object.prototype, {
+  name: { value: 'StringBuilder', enumerable: true }, // Deprecated. Use 'isaStringBuilder'
+  isaStringBuilder: { value: true, enumerable: true },
+  charAt: { value(idx) { return this.toString()[idx] }, enumerable: true },
+  length: { value() { return this.toString().length }, enumerable: true },
+  pop: { value() { return this.remove(this.segmentCount() - 1) }, enumerable: true },
+  shift: { value() { return this.remove(0) }, enumerable: true },
+  substr: { value(...args) { return this.toString().substr(...args) }, enumerable: true },
+  substring: { value (...args) { return this.toString().substring(...args) }, enumerable: true },
+  splice: { value(...args) { return this.toString().splice(...args) }, enumerable: true }
+});
+
 function StringBuilder () {
   let str; const aStrings = [];
-  return (Object.freeze({
-    name: 'StringBuilder',
-    append(o) {
-      aStrings.push(String(o));
-      str = undefined;
-      return (this);
-    },
-    pop() {
-      str = undefined;
-      return (aStrings.pop());
-    },
-    clear() {
-      aStrings.length = 0;
-      str = undefined;
-      return (this);
-    },
-    atGet(idx) {
-      return (this.toString()[idx]);
-    },
-    length() {
-      return (this.toString().length);
-    },
-    segmentCount() {
-      return (aStrings.length);
-    },
-    toString() {
-      return (str || (str = aStrings.join('')));
-    },
-    substr(...args) {
-      return (this.toString().substr(...args));
-    },
-    substring(...args) {
-      return (this.toString().substring(...args));
-    },
-    splice(...args) {
-      return (this.toString().splice(...args));
-    }
-  }));
+  return Object.create(StringBuilderPrototype, {
+    append: { value(s) { aStrings.push(typeof s === 'string' ? s : String(s)); str = undefined; return this }, enumerable: true },
+    remove: { value(idx) { const a = aStrings.splice(idx, 1); return a[0] }, enumerable: true },
+    clear: { value() { aStrings.length = 0; str = undefined; return this }, enumerable: true },
+    atGet: { value(idx) { return (aStrings[idx]) }, enumerable: true }, // Returns the string segment at idx position
+    atPut: { value(idx, s) { str = undefined; aStrings[idx] = typeof s === 'string' ? s : String(s); return this }, enumerable: true },
+    segmentCount: { value() { return aStrings.length }, enumerable: true },
+    toString: { value() { return str || (str = aStrings.join('')) }, enumerable: true },
+  });
 }
 
 function parseNameValues(data, oTgt = Object.create(null), sep = ';') {

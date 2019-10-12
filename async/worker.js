@@ -46,7 +46,7 @@ function Worker() {
 };
 
 function _WorkerPrototype() {
-  return Object.create(Object, {
+  return Object.create(Object.prototype, {
     isaWorker: { value: true, enumerable: true },
     run: { value(f, ...args) { return newTask(this, f, args).promise }, enumerable: true },
     bindRun: { value(This, f, ...args) { return this.run((typeof f === 'string' ? This[f] : f).bind(This), args) }, enumerable: true },
@@ -109,7 +109,7 @@ function run(Private, lazyPromise, f, args) {
 // For the 'tasks' method each task specification is an array of parameters that would be normally passed to the 'run' method.
 // A task that calls a method must be pre-bound.
 
-const CommonPrototype = Object.create(Object, {
+const CommonPrototype = Object.create(Object.prototype, {
   run: { value(f, ...args) { return addTask(this, f, args) }, enumerable: true },
   bindRun: { value(This, f, ...args) { return this.run((typeof f === 'string' ? This[f] : f).bind(This), args) }, enumerable: true },
   tasks: {

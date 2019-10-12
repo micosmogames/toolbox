@@ -8,6 +8,9 @@
 //    5. extends-datagroup="<group>" All dataset__ in the same element inherit from like named dataset__ in the <group> selector.
 //    6. Datagroup extends only applies to declared datasets. Undeclared datatsets from extended datagroup are not implicitly added.
 //       Use dataset_<id>="" to explicitly include a dataset from an extended datagroup if not overriding.
+//    7. if mulitple datasets are being extended then they are processed from right to left, meaning that a datatset in the extension list will override
+//       any equivalent named pairs from right hand datasets.
+//    8. Extension datasets defined in a dataset format string will override an inherited 'extend-datagroup' dataset.
 
 import aframe from 'aframe';
 import { copyValues } from '@micosmo/core/replicate';
@@ -63,10 +66,10 @@ aframe.registerComponent("extend-datagroup", {
 
 aframe.registerComponent("datagroup", {
   init() {
-    if (!this.el.id)
+    if (!(this.name = this.el.id))
       throw new Error(`micosmo:system:datagroup:init: A datagroup element must have an 'id' attribute`);
     this.sysDataset = this.el.sceneEl.systems.dataset;
-    this.sysDataset.addDatagroup(this.el.id, this);
+    this.sysDataset.addDatagroup(this.name, this);
   },
   getData(dsName) { const comp = this.el.components[`dataset__${dsName}`]; return (comp && comp.getData()) || EmptyData },
   copyData(dsName) { return copyValues(this.getData(dsName)) },
@@ -119,7 +122,7 @@ aframe.registerSystem("dataset", {
     if (sData[0] === '|') {
       const iPipe = sData.indexOf('|', 1);
       if (iPipe < 0)
-        throw new Error(`micosmo:component:dataset:parse: Datagroup extend format is '|[<datagroup>:]<dataset>[,...]|`);
+        throw new Error(`micosmo:component:dataset:parse: Dataset extend format is '|[<dg>:]<ds>[,<ds>...];...|`);
       const sExtends = sData.substring(1, iPipe); sData = sData.substring(iPipe + 1);
       const aDatasets = sExtends.split(';');
       // Process the dataset definitions in reverse order.
@@ -133,16 +136,17 @@ aframe.registerSystem("dataset", {
         if (!compGroup)
           throw new Error(`micosmo:system:dataset:parse: Datagroup not defined for dataset(s) '${dsNames}'`);
         const adsNames = dsNames.split(',');
-        adsNames.forEach(dsName => {
-          if ((dsName = dsName.trim()) === '') {
+        for (let j = adsNames.length - 1; j >= 0; j--) {
+          let dsName = adsNames[i].trim();
+          if (dsName === '') {
             if (!defDSName)
-              throw new Error(`micosmo:system:dataset:parse: Dataset name required for datagroup '${compGroup.el.id}'`);
+              throw new Error(`micosmo:system:dataset:parse: Dataset name required for datagroup '${compGroup.name}'`);
             dsName = defDSName;
           }
           if (!compGroup.hasDataFor(dsName))
-            throw new Error(`micosmo:system:dataset:parse: Dataset '${dsName}' not found in datagroup '${compGroup.el.id}`);
+            throw new Error(`micosmo:system:dataset:parse: Dataset '${dsName}' not found in datagroup '${compGroup.name}`);
           copyValues(compGroup.getData(dsName), oData);
-        });
+        };
       }
     }
     return parseNameValues(sData, oData);
