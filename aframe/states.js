@@ -18,6 +18,10 @@
 *  Events are non bubbling and are emitted to the states element.
 *  The event detail object:
 *     {
+*       disperseEvent: <meth>, // Default method to disperse the event.
+*       enter: <object>, // Enter related properties including default action handler
+*       exit: <object>, // Exit related properties including default action handler
+*       states: <object>, // The owning states component object of this event detail.
 *       fromState: <state>, // State that is being exited.
 *       toState: <state>, // State that is being entered
 *       op: 'chain' | 'push' | 'pop' | 'pause' | 'resume'
@@ -48,12 +52,13 @@ aframe.registerComponent("states", {
     this.state = this.data._state;
     this.state.currentState = undefined;
     this.stack = [];
+    // Initialise a separate evt.detail for each operation. Can be altered by owner of this states.
     this.evtDetails = {
-      chain: { disperseEvent, enterAction: defaultEnterAction, exitAction: defaultExitAction },
-      push: { disperseEvent, enterAction: defaultEnterAction, exitAction: defaultExitAction },
-      pop: { disperseEvent, enterAction: defaultEnterAction, exitAction: defaultExitAction },
-      pause: { disperseEvent, enterAction: noopAction, exitAction: pauseExitAction },
-      resume: { disperseEvent, enterAction: resumeEnterAction, exitAction: noopAction }
+      chain: { op: 'chain', disperseEvent, enter: { action: defaultEnterAction }, exit: { action: defaultExitAction }, states: this },
+      push: { op: 'push', disperseEvent, enter: { action: defaultEnterAction }, exit: { action: defaultExitAction }, states: this },
+      pop: { op: 'pop', disperseEvent, enter: { action: defaultEnterAction }, exit: { action: defaultExitAction }, states: this },
+      pause: { op: 'pause', disperseEvent, enter: { action: noopAction }, exit: { action: pauseExitAction }, states: this },
+      resume: { op: 'resume', disperseEvent, enter: { action: resumeEnterAction }, exit: { action: noopAction }, states: this }
     }
   },
   update() {
@@ -61,7 +66,7 @@ aframe.registerComponent("states", {
       throw new Error(`micosmo:component:states:update: 'event' name is required.`);
     if (!this.data.dispersePattern)
       throw new Error(`micosmo:component:states:update: 'dispersePattern' is required.`);
-    this.state.disperseFormat = parsePattern(this.state.dispersePattern, this.state.disperseFormat);
+    this.state.disperseFormat = parsePattern(this.data.dispersePattern, this.state.disperseFormat);
   },
   chain(state) { emitStateChange(this, this.state.currentState, state, 'chain') },
   push(state) { pushStateAndEmit(this, state, 'push', 'pop') },
@@ -73,7 +78,27 @@ aframe.registerComponent("states", {
     for (const prop in o) {
       if (!hasOwnProperty(o, prop))
         continue;
-      if (hasOwnProperty(this.eventDetails, prop))
+      if (hasOwnProperty(this.evtDetails, prop)) {
+        // Must be chain, push, pop, pause or resume.
+        const o1 = o[prop];
+        for (const prop1 in o1) {
+          if (!hasOwnProperty(o1, prop1))
+            continue;
+          if (prop1 === 'enter' || prop1 === 'exit') {
+            // Add/update properties to either enter or exit sub-object for given operation
+            copyValues(o1[prop1], this.evtDetails[prop][prop1]);
+            continue;
+          }
+          // Add/update a property at the root level of evt.detail for given operation
+          this.evtDetails[prop][prop1] = o1[prop1];
+        }
+        continue;
+      }
+      // Add/update a property at the root level for all operation evt.detail objects.
+      const v = o[prop];
+      ['chain', 'push', 'pop', 'pause', 'resume'].forEach(op => {
+        this.evtDetails[op][prop] = v;
+      });
     }
   }
 });
@@ -98,11 +123,10 @@ function emitStateChange(states, fromState, toState, op) {
   const data = states.data;
   if (!data.list.includes(toState))
     throw new Error(`micosmo:component:states:emitStateChange: State '${toState}' is not defined`);
-  const detail = requestObject();
-  detail.fromState = fromState; detail.toState = toState; detail.op = op;
+  const detail = states.evtDetails[op];
+  detail.fromState = fromState; detail.toState = toState;
   states.el.emit(data.event, detail, false);
   states.state.currentState = toState;
-  returnObject(detail);
 }
 
 function parsePattern(dispersePattern, disperseFormat = { sb: StringBuilder(), idxAction: 0, idxState: 0 }) {
@@ -114,29 +138,29 @@ function parsePattern(dispersePattern, disperseFormat = { sb: StringBuilder(), i
   if (order[0] > 0)
     sb.append(dispersePattern.substring(0, order[0]));
   disperseFormat[order[1]] = sb.segmentCount(); sb.append(''); // '' filler for actual value
-  if (order[3] > order[0] + 2)
-    sb.append(dispersePattern.substring(order[0] + 2, order[3]));
-  disperseFormat[order[4]] = sb.segmentCount(); sb.append(''); // '' filler for actual value
-  if (order[3] + 2 < dispersePattern.length)
-    sb.append(dispersePattern.substring(order[3] + 2)); // Append the remainder of the pattern.
+  if (order[2] > order[0] + 2)
+    sb.append(dispersePattern.substring(order[0] + 2, order[2]));
+  disperseFormat[order[3]] = sb.segmentCount(); sb.append(''); // '' filler for actual value
+  if (order[2] + 2 < dispersePattern.length)
+    sb.append(dispersePattern.substring(order[2] + 2)); // Append the remainder of the pattern.
   return disperseFormat;
 }
 
 method(disperseEvent);
-function disperseEvent(oTgt) {
+function disperseEvent(evt, oTgt) {
   let sMeth;
   const disperseFormat = this.states.state.disperseFormat;
-  if (this.fromState && oTgt[sMeth = disperseFormat.toString]) {
-    disperseFormat.sb.atPut(disperseFormat.idxAction, 'exit').atPut(disperseFormat.idxState, this.fromState);
-    oTgt[sMeth](this);
-  }
+  disperseFormat.sb.atPut(disperseFormat.idxAction, 'exit').atPut(disperseFormat.idxState, this.fromState);
+  if (this.fromState && oTgt[sMeth = disperseFormat.sb.toString()])
+    oTgt[sMeth](evt);
   disperseFormat.sb.atPut(disperseFormat.idxAction, 'enter').atPut(disperseFormat.idxState, this.toState);
-  if (oTgt[sMeth = disperseFormat.toString])
-    oTgt[sMeth](this);
+  if (oTgt[sMeth = disperseFormat.sb.toString()])
+    oTgt[sMeth](evt);
 }
 
 method(defaultEnterAction);
-function defaultEnterAction(els) {
+function defaultEnterAction(evt, ...els) {
+  if (els.length === 1 && Array.isArray(els[0])) els = els[0];
   els.forEach(el => {
     el.object3D.visible = true;
     el.play();
@@ -144,7 +168,8 @@ function defaultEnterAction(els) {
 }
 
 method(defaultExitAction);
-function defaultExitAction(els) {
+function defaultExitAction(evt, ...els) {
+  if (els.length === 1 && Array.isArray(els[0])) els = els[0];
   els.forEach(el => {
     el.object3D.visible = false;
     el.pause();
@@ -152,14 +177,16 @@ function defaultExitAction(els) {
 }
 
 method(pauseExitAction);
-function pauseExitAction(els) {
+function pauseExitAction(evt, ...els) {
+  if (els.length === 1 && Array.isArray(els[0])) els = els[0];
   els.forEach(el => el.pause());
 }
 
 method(resumeEnterAction);
-function resumeEnterAction(els) {
+function resumeEnterAction(evt, ...els) {
+  if (els.length === 1 && Array.isArray(els[0])) els = els[0];
   els.forEach(el => el.play());
 }
 
 method(noopAction);
-function noopAction() {}
+function noopAction(evt, els) {}
