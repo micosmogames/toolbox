@@ -55,6 +55,9 @@ name | Returns the name of the object ('StringBuilder'). Deprecated - use *isaSt
 
 Function | Description
 -------- | -----------
+skipRight(s[,&nbsp;iStart]) | Returns an adjusted *iStart* by skipping whitespace to the right in *s* starting at *iStart* (defaults to 0). .
+skipLeft(s[,&nbsp;iEnd]) | Returns an adjusted *iEnd* by skipping whitespace to the left in *s* starting at *iEnd* (defaults to *s.length - 1*). .
+skip(s[,&nbsp;iStart[,&nbsp;iEnd]]) | Skips whitespace in *s* from the right starting at *iStart* and to the left starting at *iEnd*. Returns adjusted *iStart* and *iEnd* values in a static array. Typically a *skip* call be used in an expression similar to ```[iStart, iEnd] = skip(<string>, iStart, iEnd)```.
 parseNameValues(s[,&nbsp;oTgt[,&nbsp;sep]]) | Returns *oTgt* after populating *oTgt* with name value pairs contained in *s*. String format is a sequence of ```[:<sep>] [(<ty>)|([<ty>])] <name> : <value> <sep>``` where *sep* (; default) is the separator between name/value pairs and *ty* is the type of value to output. See [ParseNameValues.Types](#ParseNameValues.Types) for more detail. If *oTgt* is not provided then *parseNameValues* will create a return object. The *sep* argument is the initial separator and defaults to semi-colon (;). Note that when ```:<sep>``` is encountered the new separator *sep* will apply until the end of *s* or another separator is defined. A separator definiton of ```::``` will restore the parse to the initial separator passed to *parseNameValues*.
 
 #### ParseNameValues.Types
@@ -80,6 +83,7 @@ v4 | Returns an { x, y, z, w } vector object with input of the form '&lt;x&gt;&n
 * Added *parseNameValues* as a simple css style formatted string parser that includes imbedded types and separator specification.
 * Changes to *Stringbuffer* to get and put individual segments. Change *atGet* to *charAt* for consistency. *atGet* now returns segment.
 * *name* property deprecated, replaced by *isaStringBuilder* property.
+* Added *skip*, *skipRight*, *skipLeft* for adjusting indicies within a string that contain leading to trailing whitespace.
 
 ## LICENSE
 

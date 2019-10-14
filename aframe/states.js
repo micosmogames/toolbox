@@ -11,21 +11,25 @@
 *
 *  Schema: {
 *     list: An array or one or more state names for this state management component.
-*     enterEvent: Pattern for the enter event. %% makes position of enter state
-*     exitEvent: Pattern for the exit event. %% makes position of exit state
+*     dispersePattern: Method pattern for disperseEvent. %1 for action and %2 for the state
 *     changeEvent: Name of the change event.
 *
 *  Events are non bubbling and are emitted to the states element.
 *  The event detail object:
 *     {
 *       disperseEvent: <meth>, // Default method to disperse the event.
-*       enter: <object>, // Enter related properties including default action handler
-*       exit: <object>, // Exit related properties including default action handler
 *       states: <object>, // The owning states component object of this event detail.
-*       fromState: <state>, // State that is being exited.
-*       toState: <state>, // State that is being entered
-*       op: 'chain' | 'push' | 'pop' | 'pause' | 'resume'
+*       from: <object>, // Object defining the 'from' state context.
+*       to: <object>, // Object defining the 'to' state context.
+*       op: 'chain' | 'call' | 'return'
 *     }
+*  from/to object:
+*     {
+*       state: <state>, // The transition state.
+*       action: 'enter' | 'exit' | <user defined>, // The transition action.
+*       <name>: <value>, // User defined name/values for the event.
+*     }
+*  User defined action and name/value pairs are passed to the chain, call, return operations.
 */
 "use strict";
 
@@ -49,30 +53,21 @@ aframe.registerComponent("states", {
   },
   multiple: true,
   init() {
-    this.state = this.data._state;
-    this.state.currentState = undefined;
+    this.intState = this.data._state;
+    this.intState.currentState = undefined;
     this.stack = [];
-    // Initialise a separate evt.detail for each operation. Can be altered by owner of this states.
-    this.evtDetails = {
-      chain: { op: 'chain', disperseEvent, enter: { action: defaultEnterAction }, exit: { action: defaultExitAction }, states: this },
-      push: { op: 'push', disperseEvent, enter: { action: defaultEnterAction }, exit: { action: defaultExitAction }, states: this },
-      pop: { op: 'pop', disperseEvent, enter: { action: defaultEnterAction }, exit: { action: defaultExitAction }, states: this },
-      pause: { op: 'pause', disperseEvent, enter: { action: noopAction }, exit: { action: pauseExitAction }, states: this },
-      resume: { op: 'resume', disperseEvent, enter: { action: resumeEnterAction }, exit: { action: noopAction }, states: this }
-    }
+    this.evtDetail = { disperseEvent, states: this, from: undefined, to: undefined, op: undefined };
   },
   update() {
     if (!this.data.event)
       throw new Error(`micosmo:component:states:update: 'event' name is required.`);
     if (!this.data.dispersePattern)
       throw new Error(`micosmo:component:states:update: 'dispersePattern' is required.`);
-    this.state.disperseFormat = parsePattern(this.data.dispersePattern, this.state.disperseFormat);
+    this.intState.disperseFormat = parsePattern(this.data.dispersePattern, this.intState.disperseFormat);
   },
-  chain(state) { emitStateChange(this, this.state.currentState, state, 'chain') },
-  push(state) { pushStateAndEmit(this, state, 'push', 'pop') },
+  chain(state, fromCtxt, toCtxt) { emitStateChange(this, this.intState.currentState, state, fromCtxt, toCtxt, 'chain') },
+  call(state, fromCtxt, toCtxt) { pushStateAndEmit(this, state, 'push', 'pop') },
   pop() { popStateAndEmit(this, 'pop', 'push') },
-  pause(state) { pushStateAndEmit(this, state, 'pause', 'resume') },
-  resume() { popStateAndEmit(this, 'resume', 'pause') },
 
   addEventDetail(o) {
     for (const prop in o) {
@@ -104,7 +99,7 @@ aframe.registerComponent("states", {
 });
 
 function pushStateAndEmit(states, state, opPush, opPop) {
-  const o = requestObject(); o.opPush = opPush; o.opPop = opPop; o.state = states.state.currentState;
+  const o = requestObject(); o.opPush = opPush; o.opPop = opPop; o.state = states.intState.currentState;
   states.stack.push(o);
   emitStateChange(states, o.state, state, opPush);
 }
@@ -115,7 +110,7 @@ function popStateAndEmit(states, opPop, opPush) {
   const o = this.stack.pop();
   if (o.opPush !== opPush)
     throw new Error(`micosmo:component:states:${opPop}: Expecting ${opPush} on state stack. Found ${o.opPush}.`);
-  emitStateChange(this, this.state.currentState, o.state, opPop);
+  emitStateChange(this, this.intState.currentState, o.state, opPop);
   returnObject(o);
 }
 
@@ -126,30 +121,40 @@ function emitStateChange(states, fromState, toState, op) {
   const detail = states.evtDetails[op];
   detail.fromState = fromState; detail.toState = toState;
   states.el.emit(data.event, detail, false);
-  states.state.currentState = toState;
+  states.intState.currentState = toState;
 }
 
-function parsePattern(dispersePattern, disperseFormat = { sb: StringBuilder(), idxAction: 0, idxState: 0 }) {
+function parsePattern(dispersePattern, disperseFormat = { sb: StringBuilder(), idxAction: undefined, idxState: undefined }) {
   const sb = disperseFormat.sb.clear(); disperseFormat.idxAction = disperseFormat.idxState = 0;
   const idxAction = dispersePattern.indexOf('%1'); const idxState = dispersePattern.indexOf('%2');
-  if (idxAction < 0 || idxState < 0)
-    throw new Error(`micosmo:component:states:parsePattern: A 'dispersePattern' requires both an action '%1' and state '%2' in pattern`);
-  const order = idxAction < idxState ? [idxAction, 'idxAction', idxState, 'idxState'] : [idxState, 'idxState', idxAction, 'idxAction'];
+  if (idxAction < 0 && idxState < 0)
+    throw new Error(`micosmo:component:states:parsePattern: A 'dispersePattern' requires an action '%1' or state '%2' in pattern`);
+  let order;
+  if (idxAction < 0)
+    order = [idxState, 'idxState'];
+  else if (idxState < 0)
+    order = [idxAction, 'idxAction'];
+  else
+    order = idxAction < idxState ? [idxAction, 'idxAction', idxState, 'idxState'] : [idxState, 'idxState', idxAction, 'idxAction'];
+  let iLastOrder = 0;
   if (order[0] > 0)
     sb.append(dispersePattern.substring(0, order[0]));
   disperseFormat[order[1]] = sb.segmentCount(); sb.append(''); // '' filler for actual value
-  if (order[2] > order[0] + 2)
-    sb.append(dispersePattern.substring(order[0] + 2, order[2]));
-  disperseFormat[order[3]] = sb.segmentCount(); sb.append(''); // '' filler for actual value
-  if (order[2] + 2 < dispersePattern.length)
-    sb.append(dispersePattern.substring(order[2] + 2)); // Append the remainder of the pattern.
+  if (order[2]) {
+    iLastOrder = 2;
+    if (order[2] > order[0] + 2)
+      sb.append(dispersePattern.substring(order[0] + 2, order[2]));
+    disperseFormat[order[3]] = sb.segmentCount(); sb.append(''); // '' filler for actual value
+  }
+  if (order[iLastOrder] + 2 < dispersePattern.length)
+    sb.append(dispersePattern.substring(order[iLastOrder] + 2)); // Append the remainder of the pattern.
   return disperseFormat;
 }
 
 method(disperseEvent);
 function disperseEvent(evt, oTgt) {
   let sMeth;
-  const disperseFormat = this.states.state.disperseFormat;
+  const disperseFormat = this.states.intState.disperseFormat;
   disperseFormat.sb.atPut(disperseFormat.idxAction, 'exit').atPut(disperseFormat.idxState, this.fromState);
   if (this.fromState && oTgt[sMeth = disperseFormat.sb.toString()])
     oTgt[sMeth](evt);

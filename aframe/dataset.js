@@ -14,7 +14,7 @@
 
 import aframe from 'aframe';
 import { copyValues } from '@micosmo/core/replicate';
-import { StringBuilder, parseNameValues } from '@micosmo/core/string';
+import { StringBuilder, parseNameValues, skipRight } from '@micosmo/core/string';
 import { hasOwnProperty } from '@micosmo/core/object';
 
 const Sb = StringBuilder();
@@ -118,12 +118,13 @@ aframe.registerSystem("dataset", {
     return tDataset;
   },
   parse(sData, oData = Object.create(null), defDSName, defGroup) {
-    if (!(sData = sData.trimStart())) return oData;
-    if (sData[0] === '|') {
-      const iPipe = sData.indexOf('|', 1);
+    const iData = skipRight(sData);
+    if (iData >= sData.length) return oData;
+    if (sData[iData] === '|') {
+      const iPipe = sData.indexOf('|', iData + 1);
       if (iPipe < 0)
         throw new Error(`micosmo:component:dataset:parse: Dataset extend format is '|[<dg>:]<ds>[,<ds>...];...|`);
-      const sExtends = sData.substring(1, iPipe); sData = sData.substring(iPipe + 1);
+      const sExtends = sData.substring(iData + 1, iPipe); sData = sData.substring(iPipe + 1);
       const aDatasets = sExtends.split(';');
       // Process the dataset definitions in reverse order.
       for (let i = aDatasets.length - 1; i >= 0; i--) {
