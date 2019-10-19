@@ -134,14 +134,20 @@ function parsePattern(dispersePattern, disperseFormat = { sb: StringBuilder(), i
 method(disperseEvent);
 function disperseEvent(evt, oTgt) {
   const disperseFormat = this.states.intState.disperseFormat;
-  let sMeth = getDisperseMethodName(disperseFormat, this.from);
-  if (oTgt[sMeth]) oTgt[sMeth](evt);
-  sMeth = getDisperseMethodName(disperseFormat, this.to);
+  disperseMethod(disperseFormat, evt, oTgt, this.from);
+  disperseMethod(disperseFormat, evt, oTgt, this.to);
+}
+
+function disperseMethod(disperseFormat, evt, oTgt, oCtxt) {
+  let sMeth = getDisperseMethodName(disperseFormat, oCtxt.action, oCtxt.state);
+  if (oTgt[sMeth]) return oTgt[sMeth](evt);
+  if (!oCtxt.defaultAction) return;
+  sMeth = getDisperseMethodName(disperseFormat, oCtxt.defaultAction, oCtxt.state);
   if (oTgt[sMeth]) oTgt[sMeth](evt);
 }
 
-function getDisperseMethodName(disperseFormat, oCtxt) {
-  if (disperseFormat.idxAction >= 0) disperseFormat.sb.atPut(disperseFormat.idxAction, oCtxt.action);
-  if (disperseFormat.idxState >= 0) disperseFormat.sb.atPut(disperseFormat.idxState, oCtxt.state);
+function getDisperseMethodName(disperseFormat, action, state) {
+  if (disperseFormat.idxAction >= 0) disperseFormat.sb.atPut(disperseFormat.idxAction, action);
+  if (disperseFormat.idxState >= 0) disperseFormat.sb.atPut(disperseFormat.idxState, state);
   return disperseFormat.sb.toString();
 }

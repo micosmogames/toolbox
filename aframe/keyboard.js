@@ -61,9 +61,9 @@ function dispatchEvent(kb, evt, sEvent) {
   if (keyCode === ' ' || keyCode === 'Alt' || keyCode === 'Control' || keyCode === 'Shift')
     keyCode = evt.code;
   // Build a composite key if we have alt or control key
-  if (evt.altKey)
+  if (evt.altKey && evt.key !== 'Alt')
     keyCode = `Alt-${keyCode}`;
-  if (evt.ctrlKey)
+  if (evt.ctrlKey && evt.key !== 'Control')
     keyCode = `Ctrl-${keyCode}`;
   // Try the '<filter>' listeners first
   if (dispatchListeners(kb, '<filter>', keyCode, evt, sEvent))
