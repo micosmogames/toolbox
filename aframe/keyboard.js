@@ -2,35 +2,27 @@ import aframe from 'aframe';
 import { onLoadedDo } from './startup';
 import { isVisibleInScene } from "./lib/utils";
 
-const KeyMap = new Map();
-var flKeyboardReady = false;
-var sysKeyboard;
+var isListenerInactive = listener => listener.km.isPaused || !isVisibleInScene(listener.comp.el);
+export function noVisibilityChecks() { isListenerInactive = listener => listener.km.isPaused }
 
 aframe.registerSystem("keyboard", {
   init() {
-    onLoadedDo(keyboardReady);
-    sysKeyboard = this;
-    addDocumentListeners();
+    onLoadedDo(() => this.keyboardReady());
+    this.keyMap = new Map();
+    this.flKeyboardReady = false;
+    this.fKeyDown = evt => { dispatchEvent(this, evt, 'keydown') };
+    this.fKeyUp = evt => { dispatchEvent(this, evt, 'keyup') };
+    addDocumentListeners(this);
   },
-  disable() {
-    removeDocumentListeners();
-  },
-  enable() {
-    addDocumentListeners();
-  },
-  keydown(evt) {
-    dispatchEvent(evt, 'keydown');
-  },
-  keyup(evt) {
-    dispatchEvent(evt, 'keyup');
-  },
+  disable() { removeDocumentListeners(this) },
+  enable() { addDocumentListeners(this) },
   addListeners(comp, ...keySpecs) {
     onLoadedDo(() => {
       if (!comp.el.components.keymap) {
-        console.warn(`system:keyboard:addListeners: Missing keymap component for element '${comp.el.id || '<anonymous>'}'`);
+        console.warn(`micosmo:system:keyboard:addListeners: Missing keymap component for element '${comp.el.id || '<anonymous>'}'`);
         return;
       }
-      //      console.log('system:keyboard:addListeners: Processing keymap for', comp.attrName, keySpecs, comp.el.components.keymap.mappings);
+      //      console.log('micosmo:system:keyboard:addListeners: Processing keymap for', comp.attrName, keySpecs, comp.el.components.keymap.mappings);
       addListeners(comp.el.components.keymap, comp, keySpecs)
     });
   },
@@ -38,7 +30,7 @@ aframe.registerSystem("keyboard", {
     onLoadedDo(() => {
       if (!comp.el.components.keymap)
         return;
-      //      console.log('system:keyboard:tryAddListeners: Processing keymap for', comp.attrName, keySpecs, comp.el.components.keymap.mappings);
+      //      console.log('micosmo:system:keyboard:tryAddListeners: Processing keymap for', comp.attrName, keySpecs, comp.el.components.keymap.mappings);
       addListeners(comp.el.components.keymap, comp, keySpecs)
     });
   },
@@ -46,25 +38,25 @@ aframe.registerSystem("keyboard", {
     if (!comp.el.components.keymap)
       return;
     removeListeners(comp.el.components.keymap, comp, ids);
+  },
+  keyboardReady() {
+    console.info(`micosmo:system:keyboard:keyboardReady: Keyboard enabled`);
+    this.flKeyboardReady = true;
   }
 });
 
-function fKeyDown(evt) { sysKeyboard.keydown(evt); };
-function fKeyUp(evt) { sysKeyboard.keyup(evt); };
-
-function addDocumentListeners() {
-  document.addEventListener('keydown', fKeyDown, true);
-  document.addEventListener('keyup', fKeyUp, true);
+function addDocumentListeners(kb) {
+  document.addEventListener('keydown', kb.fKeyDown, true);
+  document.addEventListener('keyup', kb.fKeyUp, true);
 }
 
-function removeDocumentListeners() {
-  document.removeEventListener('keydown', fKeyDown);
-  document.removeEventListener('keyup', fKeyUp);
+function removeDocumentListeners(kb) {
+  document.removeEventListener('keydown', kb.fKeyDown);
+  document.removeEventListener('keyup', kb.fKeyUp);
 }
 
-function dispatchEvent(evt, sEvent) {
-  if (!flKeyboardReady)
-    return;
+function dispatchEvent(kb, evt, sEvent) {
+  if (!kb.flKeyboardReady) return;
   var keyCode = evt.key;
   if (keyCode === ' ' || keyCode === 'Alt' || keyCode === 'Control' || keyCode === 'Shift')
     keyCode = evt.code;
@@ -74,18 +66,16 @@ function dispatchEvent(evt, sEvent) {
   if (evt.ctrlKey)
     keyCode = `Ctrl-${keyCode}`;
   // Try the '<filter>' listeners first
-  if (dispatchListeners('<filter>', keyCode, evt, sEvent))
+  if (dispatchListeners(kb, '<filter>', keyCode, evt, sEvent))
     return;
-  dispatchListeners(keyCode, keyCode, evt, sEvent)
+  dispatchListeners(kb, keyCode, keyCode, evt, sEvent)
 }
 
-function dispatchListeners(kmKey, keyCode, evt, sEvent) {
-  const listeners = KeyMap.get(kmKey);
-  if (!listeners)
-    return false;
+function dispatchListeners(kb, kmKey, keyCode, evt, sEvent) {
+  const listeners = kb.keyMap.get(kmKey);
+  if (!listeners) return false;
   for (const listener of listeners) {
-    if (!isVisibleInScene(listener.comp.el) || listener.km.isPaused)
-      continue;
+    if (isListenerInactive(listener)) continue;
     if (listener[sEvent](listener.id, keyCode, evt)) {
       // Captured the key, go no further
       evt.preventDefault();
@@ -97,42 +87,32 @@ function dispatchListeners(kmKey, keyCode, evt, sEvent) {
 }
 
 export function addListeners(km, comp, keySpecs) {
+  const kb = comp.el.sceneEl.systems.keyboard;
   const idMap = km.mappings.idMap;
   if (keySpecs.length === 1 && Array.isArray(keySpecs[0]))
     keySpecs = keySpecs[0];
   if (keySpecs.length === 0)
     keySpecs = Object.keys(idMap); // Listen to all key ids for the keymap
   keySpecs.forEach(spec => {
-    if (typeof spec === 'string')
-      spec = { id: spec }; // Only have an id so build a dummy spec
+    if (typeof spec === 'string') spec = { id: spec }; // Only have an id so build a dummy spec
     const keys = idMap[spec.id];
-    if (!keys)
-      return; // No mapping so ignore key id
+    if (!keys) return; // No mapping so ignore key id
     const keydown = getListener(comp, spec, 'keydown');
     const keyup = getListener(comp, spec, 'keyup');
     keys.forEach(key => {
-      const listener = {
-        km,
-        comp,
-        key,
-        id: spec.id,
-        keydown,
-        keyup
-      };
-      var listeners = KeyMap.get(key);
+      const listener = { km, comp, key, id: spec.id, keydown, keyup };
+      var listeners = kb.keyMap.get(key);
       if (listeners) {
         const i = listeners.findIndex(l => l.comp === comp && l.id === spec.id);
-        if (i < 0)
-          listeners.push(listener);
-        else
-          listeners[i] = listener;
+        listeners[i < 0 ? listeners.length : i] = listener;
       } else
-        KeyMap.set(key, [listener]);
+        kb.keyMap.set(key, [listener]);
     });
   });
 }
 
 export function removeListeners(km, comp, ids) {
+  const kb = comp.el.sceneEl.systems.keyboard;
   const idMap = km.mappings.idMap;
   if (ids.length === 1 && Array.isArray(ids[0]))
     ids = ids[0];
@@ -140,14 +120,12 @@ export function removeListeners(km, comp, ids) {
     ids = Object.keys(idMap); // Remove all key ids for the keymap
   ids.forEach(id => {
     const keys = idMap[id];
-    if (!keys)
-      return; // No mapping so ignore key id
+    if (!keys) return; // No mapping so ignore key id
     keys.forEach(key => {
-      var listeners = KeyMap.get(key);
+      var listeners = kb.keyMap.get(key);
       if (listeners) {
         const i = listeners.findIndex(l => l.comp === comp && l.id === id);
-        if (i >= 0)
-          listeners.splice(i, 1);
+        if (i >= 0) listeners.splice(i, 1);
       }
     });
   });
@@ -156,16 +134,9 @@ export function removeListeners(km, comp, ids) {
 function getListener(comp, spec, sEvt) {
   const sIdEvt = `${sEvt}_${spec.id}`;
   var fEvt = spec[sEvt];
-  if (fEvt)
-    return fEvt;
-  if ((fEvt = comp[sIdEvt] && comp[sIdEvt].bind(comp)))
-    return fEvt;
+  if (fEvt) return fEvt;
+  if ((fEvt = comp[sIdEvt] && comp[sIdEvt].bind(comp))) return fEvt;
   return ((fEvt = comp[sEvt] && comp[sEvt].bind(comp))) ? fEvt : noListener;
 }
 
 function noListener() { return false }
-
-function keyboardReady() {
-  console.info(`system:keyboard:keyboardReady: Keyboard enabled`);
-  flKeyboardReady = true;
-}

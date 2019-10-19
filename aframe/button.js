@@ -68,10 +68,13 @@ aframe.registerComponent("button", {
     if (oldData.state !== this.data.state) {
       this.stateDetails = undefined;
       if (this.data.state) {
-        var s = this.data.state; const i = s.lastIndexOf('.'); const j = s.lastIndexOf('.', i - 1);
-        if (i < 2 || j < 2)
+        var s = this.data.state; var i = s.lastIndexOf('.'); var j = s.lastIndexOf('.', i - 1);
+        if (i < 2)
           throw new Error(`micosmo:component:button:update: Invalid state expression '${s}'`);
-        this.stateDetails = [s.substring(0, j), s.substring(j + 1, i), s.substring(i + 1)];
+        else if (j < 2)
+          this.stateDetails = [s.substring(0, i), s.substring(i + 1), undefined];
+        else
+          this.stateDetails = [s.substring(0, j), s.substring(j + 1, i), s.substring(i + 1)];
         var el = document.querySelector(this.stateDetails[0]);
         if (!el)
           throw new Error(`micosmo:component:button:update: Invalid states selector '${this.stateDetails[0]}'`);

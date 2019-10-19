@@ -58,24 +58,34 @@ Function | Description
 skipRight(s[,&nbsp;iStart]) | Returns an adjusted *iStart* by skipping whitespace to the right in *s* starting at *iStart* (defaults to 0). .
 skipLeft(s[,&nbsp;iEnd]) | Returns an adjusted *iEnd* by skipping whitespace to the left in *s* starting at *iEnd* (defaults to *s.length - 1*). .
 skip(s[,&nbsp;iStart[,&nbsp;iEnd]]) | Skips whitespace in *s* from the right starting at *iStart* and to the left starting at *iEnd*. Returns adjusted *iStart* and *iEnd* values in a static array. Typically a *skip* call be used in an expression similar to ```[iStart, iEnd] = skip(<string>, iStart, iEnd)```.
-parseNameValues(s[,&nbsp;oTgt[,&nbsp;sep]]) | Returns *oTgt* after populating *oTgt* with name value pairs contained in *s*. String format is a sequence of ```[:<sep>] [(<ty>)|([<ty>])] <name> : <value> <sep>``` where *sep* (; default) is the separator between name/value pairs and *ty* is the type of value to output. See [ParseNameValues.Types](#ParseNameValues.Types) for more detail. If *oTgt* is not provided then *parseNameValues* will create a return object. The *sep* argument is the initial separator and defaults to semi-colon (;). Note that when ```:<sep>``` is encountered the new separator *sep* will apply until the end of *s* or another separator is defined. A separator definiton of ```::``` will restore the parse to the initial separator passed to *parseNameValues*.
+parseNameValues(s[,&nbsp;oTgt[,&nbsp;options]]) | Returns *oTgt* after populating *oTgt* with name value pairs contained in *s*. String format is a sequence of ```[;<eSep> | :<nvSep> | ,<vSep>]... [(<ty>)|([<ty>])] <name> <nvSep> <value> <eSep>```. See [ParseNameValues.Options](#ParseNameValues.Options) for more detail on the processing *options*. *&lt;eSep&gt;* is the separator between name/value entries, *&lt;nvSep&gt;* is the separator between name and value of an entry, and *&lt;vSep&gt;* is the separator between the values of an array type. *ty* is the type of value to output, see [ParseNameValues.Types](#ParseNameValues.Types) for more detail. If *oTgt* is not provided then *parseNameValues* will create a return object. Separators may be any operator, separator or whitespace characters. If *vSep* is set to a whitespace character then any leading occurrences of *vSep* are treated as whitespace. For example the formated string ```', ([rs])val: foo bar'``` will return ```{ val: [' foo', 'bar']}```
+
+#### ParseNameValues.Options
+
+Option | Default | Description
+------ | ------- | -----------
+entrySeparator | ';' | Character seperating name/value entries.
+nameValueSeparator | ':' | Character separating an entries' name and value.
+valuesSeparator | ',' | Character seperating array values.
+appendDuplicates | false | Set to *true* to append duplicate named entry values to an array, otherwise overwrite.
+
 
 #### ParseNameValues.Types
 
 Type | Description
 ---- | -----------
-s | Returns a string that is left and right trimmed of whitespace.
-rs | Returns the raw string. No whitespace is removed.
-i | Returns an integer number.
-n | Returns a number.
 b | Returns a boolean value of *true* or *false*.
+f | Returns a floating point number.
+i | Returns an integer number.
+s | Returns a string that is left and right trimmed of whitespace.
+t | Returns a raw text string. No whitespace is removed.
 v2 | Returns an { x, y } vector object with input of the form '&lt;x&gt;&nbsp;&lt;y&gt;'. Missing values are set to 0.
 v3 | Returns an { x, y, z } vector object with input of the form '&lt;x&gt;&nbsp;&lt;y&gt;&nbsp;&lt;z&gt;'. Missing values are set to 0.
 v4 | Returns an { x, y, z, w } vector object with input of the form '&lt;x&gt;&nbsp;&lt;y&gt;&nbsp;&lt;z&gt;&nbsp;&lt;w&gt;'. Missing values are set to 0.
 
 ##### Notes:
   * Type *s* is the default.
-  * The type specification ```([<ty>])``` defines that the input is an array of *ty* with values separated by a comma (,).
+  * The type specification ```([<ty>])``` defines that the input is an array of *ty* with values separated by *&lt;vSep&gt;*.
 
 ## HISTORY
 

@@ -42,6 +42,7 @@ Function | Description
 -------- | -----------
 addListeners(keymap,&nbsp;comp,&nbsp;keySpecs) | Generates a set of key mappings for the component *comp* matching *keyspecs* to key definitions in the supplied *keymap*. If no *keyspecs* are supplied then all key definitions in the *keymap* are mapped. *keySpecs* must be an array of zero or more specifications. See [KEYSPECS](#KEYSPECS) for more details.
 removeListeners(keymap,&nbsp;comp,&nbsp;keys) | Removes the key mappings for the component *comp* matching *keys* to key definitions in the supplied *keymap*. If no *keys* are provided then all key definitions in the *keymap* are removed. *keys* must be an array of zero or more logical names.
+noVisibilityChecks() | Removes the element visibility check when dispatching key events. A listener will only be inactive if the owning/related component is paused.
 
 ### KEYSPECS
 
@@ -60,6 +61,11 @@ If there is no *keydown* handler specified in the *keySpec* oject then the *keyb
 #### FILTERING KEY EVENTS
 
 A *keyspec* can have a special *id* of *&lt;filter&gt;*. A *filter* is a *keydown* or *keyup* handler that receives all key events and can perform their own filtering of the events. Note that an associated *keymap* must include *&lt;filter&gt;* as a key mapping. 
+
+## HISTORY
+
+### Version 0.1.2
+* Enhanced to support separate keyboards for separate scenes.
 
 ## LICENSE
 

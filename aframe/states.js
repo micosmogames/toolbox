@@ -11,7 +11,7 @@
 *
 *  Schema: {
 *     list: An array or one or more state names for this state management component.
-*     dispersePattern: Method pattern for disperseEvent. %1 for action and %2 for the state
+*     dispersePattern: Method pattern for disperseEvent. %A for action and %S for the state
 *     changeEvent: Name of the change event.
 *
 *  Events are non bubbling and are emitted to the states element.
@@ -34,18 +34,18 @@
 "use strict";
 
 import aframe from 'aframe';
-import { requestObject, returnObject, hasOwnProperty } from '@micosmo/core/object';
+import { requestObject, returnObject } from '@micosmo/core/object';
 import { declareMethods, method } from '@micosmo/core/method';
-import { StringBuilder } from '@micosmo/core/string';
+import { StringBuilder, parseNameValues } from '@micosmo/core/string';
 import { copyValues } from '@micosmo/core/replicate';
 import { createSchemaPersistentObject } from './lib/utils';
 
-declareMethods(disperseEvent, defaultEnterAction, defaultExitAction, pauseExitAction, resumeEnterAction, noopAction);
+declareMethods(disperseEvent);
 
 aframe.registerComponent("states", {
   schema: {
     list: { default: [] },
-    dispersePattern: { default: '%1%2' }, // Pattern for generic state handler model. %1 - enter/exit, %2 - state
+    dispersePattern: { default: '%A%S' }, // Pattern for generic state handler model. %A - action, %S - state
     event: { default: 'statechanged' },
   },
   updateSchema(data) {
@@ -55,8 +55,7 @@ aframe.registerComponent("states", {
   init() {
     this.intState = this.data._state;
     this.intState.currentState = undefined;
-    this.stack = [];
-    this.evtDetail = { disperseEvent, states: this, from: undefined, to: undefined, op: undefined };
+    this.callStack = [];
   },
   update() {
     if (!this.data.event)
@@ -66,69 +65,50 @@ aframe.registerComponent("states", {
     this.intState.disperseFormat = parsePattern(this.data.dispersePattern, this.intState.disperseFormat);
   },
   chain(state, fromCtxt, toCtxt) { emitStateChange(this, this.intState.currentState, state, fromCtxt, toCtxt, 'chain') },
-  call(state, fromCtxt, toCtxt) { pushStateAndEmit(this, state, 'push', 'pop') },
-  pop() { popStateAndEmit(this, 'pop', 'push') },
-
-  addEventDetail(o) {
-    for (const prop in o) {
-      if (!hasOwnProperty(o, prop))
-        continue;
-      if (hasOwnProperty(this.evtDetails, prop)) {
-        // Must be chain, push, pop, pause or resume.
-        const o1 = o[prop];
-        for (const prop1 in o1) {
-          if (!hasOwnProperty(o1, prop1))
-            continue;
-          if (prop1 === 'enter' || prop1 === 'exit') {
-            // Add/update properties to either enter or exit sub-object for given operation
-            copyValues(o1[prop1], this.evtDetails[prop][prop1]);
-            continue;
-          }
-          // Add/update a property at the root level of evt.detail for given operation
-          this.evtDetails[prop][prop1] = o1[prop1];
-        }
-        continue;
-      }
-      // Add/update a property at the root level for all operation evt.detail objects.
-      const v = o[prop];
-      ['chain', 'push', 'pop', 'pause', 'resume'].forEach(op => {
-        this.evtDetails[op][prop] = v;
-      });
-    }
-  }
+  call(state, fromCtxt, toCtxt) { callAndEmit(this, state, fromCtxt, toCtxt) },
+  return(state, fromCtxt, toCtxt) { returnAndEmit(this, state, fromCtxt, toCtxt) },
 });
 
-function pushStateAndEmit(states, state, opPush, opPop) {
-  const o = requestObject(); o.opPush = opPush; o.opPop = opPop; o.state = states.intState.currentState;
-  states.stack.push(o);
-  emitStateChange(states, o.state, state, opPush);
+function callAndEmit(states, state, fromCtxt, toCtxt) {
+  const curState = states.intState.currentState;
+  states.callStack.push(curState);
+  emitStateChange(states, curState, state, fromCtxt, toCtxt, 'call');
 }
 
-function popStateAndEmit(states, opPop, opPush) {
-  if (this.stack.length === 0)
-    throw new Error(`micosmo:component:states:${opPop}: There is no ${opPush} state to ${opPop}.`);
-  const o = this.stack.pop();
-  if (o.opPush !== opPush)
-    throw new Error(`micosmo:component:states:${opPop}: Expecting ${opPush} on state stack. Found ${o.opPush}.`);
-  emitStateChange(this, this.intState.currentState, o.state, opPop);
-  returnObject(o);
+function returnAndEmit(states, state, fromCtxt, toCtxt) {
+  if (states.callStack.length === 0)
+    throw new Error(`micosmo:component:states:returnAndEmit: Call stack is empty.`);
+  const oldState = states.callStack.pop();
+  emitStateChange(states, states.intState.currentState, state || oldState, fromCtxt, toCtxt, 'return');
 }
 
-function emitStateChange(states, fromState, toState, op) {
-  const data = states.data;
-  if (!data.list.includes(toState))
+function emitStateChange(states, fromState, toState, fromCtxt, toCtxt, op) {
+  if (!states.data.list.includes(toState))
     throw new Error(`micosmo:component:states:emitStateChange: State '${toState}' is not defined`);
-  const detail = states.evtDetails[op];
-  detail.fromState = fromState; detail.toState = toState;
-  states.el.emit(data.event, detail, false);
+
+  const evtDetail = requestObject();
+  evtDetail.disperseEvent = disperseEvent; evtDetail.states = states; evtDetail.op = op;
+  evtDetail.from = createContextObject(fromCtxt, fromState, 'exit');
+  evtDetail.to = createContextObject(toCtxt, toState, 'enter');
+
   states.intState.currentState = toState;
+  states.el.emit(states.data.event, evtDetail, false);
+  returnObject(evtDetail); // Will automatically cleanup from/to context objects
+}
+
+function createContextObject(ctxt, state, defAction) {
+  const oCtxt = requestObject();
+  oCtxt.state = state || '<nos>';
+  if (ctxt) typeof ctxt === 'string' ? parseNameValues(ctxt, oCtxt) : copyValues(ctxt, oCtxt);
+  if (!oCtxt.action) oCtxt.action = defAction;
+  return oCtxt;
 }
 
 function parsePattern(dispersePattern, disperseFormat = { sb: StringBuilder(), idxAction: undefined, idxState: undefined }) {
   const sb = disperseFormat.sb.clear(); disperseFormat.idxAction = disperseFormat.idxState = 0;
-  const idxAction = dispersePattern.indexOf('%1'); const idxState = dispersePattern.indexOf('%2');
+  const idxAction = dispersePattern.indexOf('%A'); const idxState = dispersePattern.indexOf('%S');
   if (idxAction < 0 && idxState < 0)
-    throw new Error(`micosmo:component:states:parsePattern: A 'dispersePattern' requires an action '%1' or state '%2' in pattern`);
+    throw new Error(`micosmo:component:states:parsePattern: A 'dispersePattern' requires an action '%A' or state '%S' in pattern`);
   let order;
   if (idxAction < 0)
     order = [idxState, 'idxState'];
@@ -153,45 +133,15 @@ function parsePattern(dispersePattern, disperseFormat = { sb: StringBuilder(), i
 
 method(disperseEvent);
 function disperseEvent(evt, oTgt) {
-  let sMeth;
   const disperseFormat = this.states.intState.disperseFormat;
-  disperseFormat.sb.atPut(disperseFormat.idxAction, 'exit').atPut(disperseFormat.idxState, this.fromState);
-  if (this.fromState && oTgt[sMeth = disperseFormat.sb.toString()])
-    oTgt[sMeth](evt);
-  disperseFormat.sb.atPut(disperseFormat.idxAction, 'enter').atPut(disperseFormat.idxState, this.toState);
-  if (oTgt[sMeth = disperseFormat.sb.toString()])
-    oTgt[sMeth](evt);
+  let sMeth = getDisperseMethodName(disperseFormat, this.from);
+  if (oTgt[sMeth]) oTgt[sMeth](evt);
+  sMeth = getDisperseMethodName(disperseFormat, this.to);
+  if (oTgt[sMeth]) oTgt[sMeth](evt);
 }
 
-method(defaultEnterAction);
-function defaultEnterAction(evt, ...els) {
-  if (els.length === 1 && Array.isArray(els[0])) els = els[0];
-  els.forEach(el => {
-    el.object3D.visible = true;
-    el.play();
-  })
+function getDisperseMethodName(disperseFormat, oCtxt) {
+  if (disperseFormat.idxAction >= 0) disperseFormat.sb.atPut(disperseFormat.idxAction, oCtxt.action);
+  if (disperseFormat.idxState >= 0) disperseFormat.sb.atPut(disperseFormat.idxState, oCtxt.state);
+  return disperseFormat.sb.toString();
 }
-
-method(defaultExitAction);
-function defaultExitAction(evt, ...els) {
-  if (els.length === 1 && Array.isArray(els[0])) els = els[0];
-  els.forEach(el => {
-    el.object3D.visible = false;
-    el.pause();
-  })
-}
-
-method(pauseExitAction);
-function pauseExitAction(evt, ...els) {
-  if (els.length === 1 && Array.isArray(els[0])) els = els[0];
-  els.forEach(el => el.pause());
-}
-
-method(resumeEnterAction);
-function resumeEnterAction(evt, ...els) {
-  if (els.length === 1 && Array.isArray(els[0])) els = els[0];
-  els.forEach(el => el.play());
-}
-
-method(noopAction);
-function noopAction(evt, els) {}

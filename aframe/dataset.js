@@ -36,7 +36,7 @@ aframe.registerComponent("dataset", {
     if (!compExtend && this.el.getAttribute('extend-datagroup'))
       throw new Error(`micosmo:component:dataset:update: The 'extend-datagroup' component must be placed before 'dataset' components`);
     const oDataset = (compExtend && compExtend.copyData(this.id)) || Object.create(null);
-    this.dataset = Object.freeze(this.system.parse(this.data, oDataset, this.id, this.group));
+    this.dataset = Object.freeze(this.system.parse(this.data, oDataset, { defaultDatasetName: this.id, defaultDatagroup: this.group }));
   },
   getData() { return this.dataset },
   copyData() { return copyValues(this.dataset) }
@@ -78,6 +78,12 @@ aframe.registerComponent("datagroup", {
 
 aframe.registerPrimitive('a-datagroup', { defaultComponents: { datagroup: '' } });
 
+const ParseDefaultOptions = {
+  defaultDatasetName: undefined,
+  defaultDatagroup: undefined,
+  datasetMarker: '|', // Character defining the bounds of datasets to extend.
+}
+
 aframe.registerSystem("dataset", {
   init() { this.groupMap = new Map() },
   addDatagroup(name, compGroup) {
@@ -117,14 +123,17 @@ aframe.registerSystem("dataset", {
     });
     return tDataset;
   },
-  parse(sData, oData = Object.create(null), defDSName, defGroup) {
+  parse(sData, oData = Object.create(null), options = ParseDefaultOptions) {
+    const defDSName = options.defaultDatasetName;
+    const defGroup = options.defaultDatagroup;
+    const dsMarker = options.datasetMarker || ParseDefaultOptions.datasetMarker;
     const iData = skipRight(sData);
     if (iData >= sData.length) return oData;
-    if (sData[iData] === '|') {
-      const iPipe = sData.indexOf('|', iData + 1);
-      if (iPipe < 0)
-        throw new Error(`micosmo:component:dataset:parse: Dataset extend format is '|[<dg>:]<ds>[,<ds>...];...|`);
-      const sExtends = sData.substring(iData + 1, iPipe); sData = sData.substring(iPipe + 1);
+    if (sData[iData] === dsMarker) {
+      const iMarker = sData.indexOf(dsMarker, iData + 1);
+      if (iMarker < 0)
+        throw new Error(`micosmo:component:dataset:parse: Dataset extend format is '${dsMarker}[<dg>:]<ds>[,<ds>...];...${dsMarker}`);
+      const sExtends = sData.substring(iData + 1, iMarker); sData = sData.substring(iMarker + 1);
       const aDatasets = sExtends.split(';');
       // Process the dataset definitions in reverse order.
       for (let i = aDatasets.length - 1; i >= 0; i--) {
@@ -150,7 +159,7 @@ aframe.registerSystem("dataset", {
         };
       }
     }
-    return parseNameValues(sData, oData);
+    return parseNameValues(sData, oData, options); // Options can contain parseNameValues option overrides
   },
   asString(oDataset) {
     Sb.clear();
@@ -182,6 +191,6 @@ aframe.registerComponent("mi", {
     this.sysDataset = this.el.sceneEl.systems.dataset;
   },
   update() {
-    this.el.setAttribute(this.tgtAttrName, this.sysDataset.asString(this.sysDataset.parse(this.data, undefined, this.tgtCompName)));
+    this.el.setAttribute(this.tgtAttrName, this.sysDataset.asString(this.sysDataset.parse(this.data, undefined, { defaultDatasetName: this.tgtCompName })));
   }
 });

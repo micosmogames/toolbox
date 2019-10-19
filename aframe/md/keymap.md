@@ -35,6 +35,9 @@ play() | Resumes all key event listeners for the associated entity element. Note
 
 None
 
+### Version 0.1.2
+* Changed to use *parseNameValues* to parse key mapping string.
+
 ## LICENSE
 
 ISC - Internet Systems Consortium

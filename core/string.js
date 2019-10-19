@@ -58,15 +58,32 @@ function StringBuilder () {
   });
 }
 
-function parseNameValues(data, oTgt = Object.create(null), sep = ';') {
-  let chSep = sep;
-  for (let iData = 0, iSep = 0; iData < data.length; iData = iSep + 1) {
+const ParseNameValuesDefaultOptions = {
+  entrySeparator: ';', // Character seperating name/value entries.
+  nameValueSeparator: ':', // Character separating the name and value of an entry
+  valuesSeparator: ',', // Character seperating array values.
+  appendDuplicates: false // True to create an array of values for duplicate named entries, otherwise overwrite
+}
+
+function parseNameValues(data, oTgt = Object.create(null), options = ParseNameValuesDefaultOptions) {
+  let vSep = options.valuesSeparator || ParseNameValuesDefaultOptions.valuesSeparator;
+  let nvSep = options.nameValueSeparator || ParseNameValuesDefaultOptions.nameValueSeparator
+  let eSep = options.entrySeparator || ParseNameValuesDefaultOptions.entrySeparator
+  for (let iData = 0, ieSep = 0; iData < data.length; iData = ieSep + 1) {
     iData = skipRight(data, iData);
-    if (data[iData] === ':' && isOperator(data[iData + 1])) {
-      // New separator character has been set. '::' will reset separator to 'sep' argument.
-      iData++; chSep = data[iData] === '.' ? sep : data[iData]; iData++;
+    // First of all see if a new entry, value and/or name/value separator has been specified.
+    // ; - entry lead  , - values lead  : name/value lead
+    for (let i = ';:,'.length; i > 0; i--, iData += 2) {
+      const iLead = ';:,'.indexOf(data[iData]); const ch2 = data[iData + 1];
+      if (iLead < 0 || !(isOperator(ch2) || isWhitespace(ch2))) break;
+      switch (';:,'[iLead]) {
+      case ';': eSep = ch2; break;
+      case ',': vSep = ch2; break;
+      case ':': nvSep = ch2; break;
+      }
     }
-    if ((iSep = data.indexOf(chSep, iData)) < 0) iSep = data.length;
+
+    if ((ieSep = data.indexOf(eSep, iData)) < 0) ieSep = data.length;
     // Now process the content of this name/value pair.
     var tyHand = TypeHandler.s;
     var tyArray = false;
@@ -89,19 +106,23 @@ function parseNameValues(data, oTgt = Object.create(null), sep = ';') {
       if (!tyHand || typeof tyHand !== 'function' || iEnd - iStart > 1)
         throw new Error(`micosmo:core:string:parseNameValues: Invalid value type '${data.substring(iStart, iEnd + 1)}'`);
     }
-    const i = data.indexOf(':', iData);
+    const i = data.indexOf(nvSep, iData);
     if (i < 0) {
-      if (tyHand === TypeHandler.s || tyHand === TypeHandler.r.s) {
-        const name = getString(data, iData, iSep - 1);
+      if (tyHand === TypeHandler.s || tyHand === TypeHandler.t) {
+        const name = getString(data, iData, ieSep - 1);
         if (name) oTgt[name] = '';
         return oTgt;
       }
-      throw new Error(`micosmo:core:string:parseNameValues: Invalid value for '${data.substring(iData, iSep)}'`);
+      throw new Error(`micosmo:core:string:parseNameValues: Invalid value for '${data.substring(iData, ieSep)}'`);
     }
     const name = getString(data, iData, i - 1);
     if (!name)
-      throw new Error(`micosmo:core:string:parseNameValues: Missing name for value '${data.substring(i, iSep)}'`);
-    oTgt[name] = tyArray ? parseValues(data, tyHand, i + 1, iSep - 1) : tyHand(data, i + 1, iSep - 1);
+      throw new Error(`micosmo:core:string:parseNameValues: Missing name for value '${data.substring(i, ieSep)}'`);
+    const val = tyArray ? parseValues(data, tyHand, i + 1, ieSep - 1, vSep) : tyHand(data, i + 1, ieSep - 1);
+    if (oTgt[name] && options.appendDuplicates)
+      oTgt[name] = (Array.isArray(oTgt[name]) ? oTgt[name] : [oTgt[name]]).concat(val);
+    else
+      oTgt[name] = val;
   }
   return oTgt;
 }
@@ -122,10 +143,16 @@ function skip(s, iStart, iEnd) {
   return SkipRetVals;
 }
 
-function parseValues(data, tyHand, iStart, iEnd) {
+function parseValues(data, tyHand, iStart, iEnd, vSep) {
+  const wsSep = isWhitespace(vSep);
   const vals = [];
-  for (let i = data.indexOf(',', iStart); i <= iEnd; iStart = i + 1, i = data.indexOf(',', iStart)) {
+  for (let i = data.indexOf(vSep, iStart); i <= iEnd; iStart = i + 1, i = data.indexOf(vSep, iStart)) {
     if (i < 0) { vals.push(tyHand(data, iStart, iEnd)); break }
+    if (wsSep && i === iStart) {
+      // Treat leading whitespace vSep as just white space. In this case can't have zero length string values.
+      while (i < iEnd && data[++i] === vSep);
+      if ((i = data.indexOf(vSep, i)) < 0 || i > iEnd) { vals.push(tyHand(data, iStart, iEnd)); break }
+    }
     vals.push(tyHand(data, iStart, i - 1));
   }
   return vals;
@@ -137,13 +164,11 @@ function getString(s, iStart, iEnd) {
 }
 
 var TypeHandler = {
-  s(s, iStart, iEnd) { return getString(s, iStart, iEnd) },
   b(s, iStart) { iStart = skipRight(s, iStart); let i = 0; while (i < 4 && s[iStart++] === 'true'[i++]); return i === 4 },
-  r: {
-    s(s, iStart, iEnd) { return iStart > 0 || iEnd < s.length - 1 ? s.substring(iStart, iEnd + 1) : s },
-  },
-  i(s, iStart, iEnd) { return parseInt(getString(s, iStart, iEnd)) },
   f(s, iStart, iEnd) { return parseFloat(getString(s, iStart, iEnd)) },
+  i(s, iStart, iEnd) { return parseInt(getString(s, iStart, iEnd)) },
+  s(s, iStart, iEnd) { return getString(s, iStart, iEnd) },
+  t(s, iStart, iEnd) { return iStart > 0 || iEnd < s.length - 1 ? s.substring(iStart, iEnd + 1) : s },
   v: {
     '2'(s, iStart, iEnd) { return toVector(s, iStart, iEnd, 2) },
     '3'(s, iStart, iEnd) { return toVector(s, iStart, iEnd, 3) },
