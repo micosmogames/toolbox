@@ -8,6 +8,7 @@
 "use strict"
 
 const { startTimer, peekTimer, stopTimer } = require('@micosmo/core/time');
+const { removeIndex } = require('@micosmo/core/object');
 
 const High = 1;
 const Default = 2;
@@ -184,7 +185,7 @@ function tryRemoveQueuedThreadlet(threadlet, Private) {
       const o = queue[i];
       if (o.threadlet !== threadlet)
         continue;
-      queue.splice(i, 1);
+      removeIndex(queue, i);
       removingThreadlet(o);
       return true;
     }

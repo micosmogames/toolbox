@@ -7,6 +7,9 @@
   },
   "author": "Micosmo",
   "license": "ISC",
+  "dependencies": {
+    "@micosmo/core": "^0.2.0"
+  },
   "devDependencies": {
     "eslint": "latest",
     "eslint-config-standard": "latest",

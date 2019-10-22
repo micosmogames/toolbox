@@ -47,6 +47,7 @@ afterLoadedDo(f) | The function *f* is queued until the *loaded* event occurs an
 * Extended to support multiple scenes and potentailly concurrent loading of 2 or more scenes.
 * Integrated with states system
 * Processes tasks asynchronously and will wait for promises returned from any task.
+* Change array splice to removeIndex
 
 ## LICENSE
 

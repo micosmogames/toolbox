@@ -6,7 +6,7 @@
 "use strict";
 
 import aframe from 'aframe';
-import { declareMethods, method } from '@micosmo/core';
+import { declareMethods, method, removeValue } from '@micosmo/core';
 import { AsyncPromise, isPromisable } from '@micosmo/async';
 
 declareMethods(systemLoadedListener);
@@ -47,7 +47,7 @@ function systemLoadedListener() {
   this.sceneEl.removeEventListener('loaded', this.fLoadedListener);
   if (LoadingScenes.length > 1) {
     console.info(`micosmo:system:startup:systemLoadedListener: Processing of 'onLoadedDo' & 'afterLoadedDo' queues for scene '${this.name}' deferred. Multiple scenes loading ...`);
-    LoadingScenes.splice(LoadingScenes.indexOf(this.sceneEl), 1);
+    removeValue(LoadingScenes, this.sceneEl);
     AfterLoadedDoQueue.push(() => this.sceneEl.emit('startupComplete', undefined, false));
   }
   console.info(`micosmo:system:startup:systemLoadedListener: Processing 'onLoadedDo' & 'afterLoadedDo' queues. Scene(${this.name})`);

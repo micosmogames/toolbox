@@ -66,6 +66,7 @@ A *keyspec* can have a special *id* of *&lt;filter&gt;*. A *filter* is a *keydow
 
 ### Version 0.1.2
 * Enhanced to support separate keyboards for separate scenes.
+* Change array splice to removeIndex
 
 ## LICENSE
 

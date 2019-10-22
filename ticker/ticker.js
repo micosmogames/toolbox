@@ -7,6 +7,7 @@
 
 const { declareMethods, method } = require('@micosmo/core/method');
 const { isaGeneratorFunction } = require('@micosmo/core/function');
+const { removeIndex } = require('@micosmo/core/object');
 
 declareMethods(tickProcess, tickTicker);
 
@@ -96,7 +97,7 @@ function tickTicker(tm, dt) {
   for (let i = 0; i < nProcesses;) {
     const process = processes[i];
     if (!process || (!process._isPaused && process.tick(tm, dt) === 'stopped')) {
-      processes.splice(i, 1);
+      removeIndex(processes, i);
       nProcesses--;
       if (processes.length <= 0)
         this.tick = fNoop;

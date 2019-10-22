@@ -146,8 +146,8 @@ function skip(s, iStart, iEnd) {
 function parseValues(data, tyHand, iStart, iEnd, vSep) {
   const wsSep = isWhitespace(vSep);
   const vals = [];
-  for (let i = data.indexOf(vSep, iStart); i <= iEnd; iStart = i + 1, i = data.indexOf(vSep, iStart)) {
-    if (i < 0) { vals.push(tyHand(data, iStart, iEnd)); break }
+  for (let i = data.indexOf(vSep, iStart); iStart <= iEnd + 1; iStart = i + 1, i = data.indexOf(vSep, iStart)) {
+    if (i < 0 || i > iEnd) { vals.push(tyHand(data, iStart, iEnd)); break }
     if (wsSep && i === iStart) {
       // Treat leading whitespace vSep as just white space. In this case can't have zero length string values.
       while (i < iEnd && data[++i] === vSep);

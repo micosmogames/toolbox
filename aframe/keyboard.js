@@ -1,4 +1,5 @@
 import aframe from 'aframe';
+import { requestObject, returnObject, removeIndex } from '@micosmo/core/object'
 import { onLoadedDo } from './startup';
 import { isVisibleInScene } from "./lib/utils";
 
@@ -23,7 +24,7 @@ aframe.registerSystem("keyboard", {
         return;
       }
       //      console.log('micosmo:system:keyboard:addListeners: Processing keymap for', comp.attrName, keySpecs, comp.el.components.keymap.mappings);
-      addListeners(comp.el.components.keymap, comp, keySpecs)
+      addListeners(comp.el.components.keymap, comp, ...keySpecs)
     });
   },
   tryAddListeners(comp, ...keySpecs) {
@@ -31,13 +32,13 @@ aframe.registerSystem("keyboard", {
       if (!comp.el.components.keymap)
         return;
       //      console.log('micosmo:system:keyboard:tryAddListeners: Processing keymap for', comp.attrName, keySpecs, comp.el.components.keymap.mappings);
-      addListeners(comp.el.components.keymap, comp, keySpecs)
+      addListeners(comp.el.components.keymap, comp, ...keySpecs)
     });
   },
   removeListeners(comp, ...ids) {
     if (!comp.el.components.keymap)
       return;
-    removeListeners(comp.el.components.keymap, comp, ids);
+    removeListeners(comp.el.components.keymap, comp, ...ids);
   },
   keyboardReady() {
     console.info(`micosmo:system:keyboard:keyboardReady: Keyboard enabled`);
@@ -86,7 +87,8 @@ function dispatchListeners(kb, kmKey, keyCode, evt, sEvent) {
   return false;
 }
 
-export function addListeners(km, comp, keySpecs) {
+const Spec = {};
+export function addListeners(km, comp, ...keySpecs) {
   const kb = comp.el.sceneEl.systems.keyboard;
   const idMap = km.mappings.idMap;
   if (keySpecs.length === 1 && Array.isArray(keySpecs[0]))
@@ -94,24 +96,25 @@ export function addListeners(km, comp, keySpecs) {
   if (keySpecs.length === 0)
     keySpecs = Object.keys(idMap); // Listen to all key ids for the keymap
   keySpecs.forEach(spec => {
-    if (typeof spec === 'string') spec = { id: spec }; // Only have an id so build a dummy spec
+    if (typeof spec === 'string') spec = (Spec.id = spec, Spec); // Only have an id so build a dummy spec
     const keys = idMap[spec.id];
     if (!keys) return; // No mapping so ignore key id
     const keydown = getListener(comp, spec, 'keydown');
     const keyup = getListener(comp, spec, 'keyup');
     keys.forEach(key => {
-      const listener = { km, comp, key, id: spec.id, keydown, keyup };
+      // { km, comp, key, id: spec.id, keydown, keyup }
+      const l = requestObject(); l.km = km; l.comp = comp; l.key = key; l.id = spec.id; l.keydown = keydown; l.keyup = keyup;
       var listeners = kb.keyMap.get(key);
       if (listeners) {
         const i = listeners.findIndex(l => l.comp === comp && l.id === spec.id);
-        listeners[i < 0 ? listeners.length : i] = listener;
+        if (i >= 0) { returnObject(listeners[i]); listeners[i] = l } else listeners.push(l);
       } else
-        kb.keyMap.set(key, [listener]);
+        kb.keyMap.set(key, [l]);
     });
   });
 }
 
-export function removeListeners(km, comp, ids) {
+export function removeListeners(km, comp, ...ids) {
   const kb = comp.el.sceneEl.systems.keyboard;
   const idMap = km.mappings.idMap;
   if (ids.length === 1 && Array.isArray(ids[0]))
@@ -125,7 +128,7 @@ export function removeListeners(km, comp, ids) {
       var listeners = kb.keyMap.get(key);
       if (listeners) {
         const i = listeners.findIndex(l => l.comp === comp && l.id === id);
-        if (i >= 0) listeners.splice(i, 1);
+        if (i >= 0) returnObject(removeIndex(listeners, i));
       }
     });
   });

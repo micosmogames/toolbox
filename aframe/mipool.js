@@ -4,6 +4,7 @@
  * An extended version of the Aframe 0.9.2 pool component.
  */
 import aframe from "aframe";
+import { removeIndex } from "@micosmo/core/object";
 
 /**
  * Pool component to reuse entities.
@@ -120,7 +121,7 @@ aframe.registerComponent('mipool', {
       console.warn('micosmo:component:mipool:returnEntity: The returned entity was not previously pooled from ' + this.attrName);
       return;
     }
-    this.usedEls.splice(index, 1);
+    removeIndex(this.usedEls, index);
     this.availableEls.push(el);
     el.object3D.visible = false;
     el.emit('pool-return', undefined, false);

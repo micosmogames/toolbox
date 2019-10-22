@@ -25,7 +25,9 @@ module.exports = {
   requestObject,
   returnObject,
   requestArray,
-  returnArray
+  returnArray,
+  removeIndex,
+  removeValue
 }
 
 function getJsEnvType() {
@@ -89,4 +91,17 @@ function _returnArray(a, promise) {
     ArrayPool.push(a);
   });
   return promise;
+}
+
+function removeIndex(array, idx) {
+  const val = array[idx];
+  array.copyWithin(idx, idx + 1);
+  array.length--;
+  return val;
+}
+
+function removeValue(array, val) {
+  const idx = array.indexOf(val);
+  if (idx >= 0) return removeIndex(array, idx);
+  return undefined;
 }

@@ -11,7 +11,7 @@
 */
 "use strict"
 
-const { newPrivateSpace, method, declareMethods } = require('@micosmo/core');
+const { newPrivateSpace, method, declareMethods, removeIndex } = require('@micosmo/core');
 const { LazyPromise } = require('./promise');
 const fPrivate = newPrivateSpace();
 
@@ -83,7 +83,7 @@ function removeWaiter(Private, lp) {
   for (let i = 0; i < waiters.length; i++) {
     if (waiters[i].lazyPromise !== lp)
       continue;
-    waiters.splice(i, 1);
+    removeIndex(waiters, i);
     return
   }
 }

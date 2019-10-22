@@ -44,6 +44,11 @@ pool-add | None | No | Is emitted to the entity when the entity is first added t
 pool-remove | None | No | Is emitted to the entity each time the entity is removed from the pool. Is emitted prior to the *play* method call.
 pool-return | None | no | Is emitted to the entity each time the entity is returned to the pool. Is emitted prior to the *pause* method call.
 
+## HISTORY
+
+### 0.1.2
+* Change array splice to removeIndex
+
 ## LICENSE
 
 ISC - Internet Systems Consortium

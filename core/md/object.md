@@ -24,6 +24,8 @@ requestObject() | Returns the next available object from the object pool. Create
 returnObject(o) | Cleans and returns an object or array to the appropriate pool. This process is run asynchronously and requires the caller to be asynchronous.
 requestArray() | Returns the next available array from the array pool. Creates new arrays on demand. Assists in minimizing GC processing.
 returnArray(o) | Alternative name for *returnObject*.
+removeIndex(array,&nbsp;idx) | Return the array element at *idx* after removing the element from *array*. No additional arrays are created by this call.
+removeValue(array,&nbsp;val) | Remove the first element with *val* from *array*. Returns *val* or *undefined*. No additional arrays are created by this call.
 
 #### PROPERTIES
 
@@ -35,7 +37,7 @@ globalThis | The global *this* value for the current Javascript environment.
 
 ### Version 0.2.0
 * Added object and array pools.
-* Added *hasOwnProperty*.
+* Added *hasOwnProperty* and *removeIndex*.
 
 ## LICENSE
 
