@@ -20,8 +20,8 @@ aframe.registerComponent("keymap", {
       throw new Error('micosmo:component:keymap:removeListeners: Keymap is not associated with component');
     removeListeners(this, comp, ids);
   },
-  play() { this.isPaused = false },
-  pause() { this.isPaused = true }
+  pause() { this.isPaused = true },
+  play() { this.isPaused = false }
 });
 
 const ParseOptions = { entrySeparator: ',', appendDuplicates: true };
@@ -36,10 +36,14 @@ function prepareKeyMappings(km) {
       idMap[id] = keys = [id]; // Default to key id === key code.
     else if (!Array.isArray(keys))
       idMap[id] = keys = [keys];
-    keys.forEach(key => {
-      if (keyMap[key])
-        throw new Error(`micosmo:component:keymap:update: Multiple ids ('${keyMap[key]}' & '${id1}') for key '${key}'.`);
-      keyMap[key] = id1;
+    keys.forEach((key, idx) => {
+      if (key === '<filter>') {
+        console.warn(`'<filter>' has been deprecated and has been replaced by 'any'`);
+        keys[idx] = key = 'any';
+      }
+      if (!keyMap[key]) keyMap[key] = id1;
+      else if (!Array.isArray(keyMap[key])) keyMap[key] = [keyMap[key], id1];
+      else keyMap[key].push(id1);
     });
   }
   return { keyMap, idMap };

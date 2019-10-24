@@ -60,13 +60,14 @@ If there is no *keydown* handler specified in the *keySpec* oject then the *keyb
 
 #### FILTERING KEY EVENTS
 
-A *keyspec* can have a special *id* of *&lt;filter&gt;*. A *filter* is a *keydown* or *keyup* handler that receives all key events and can perform their own filtering of the events. Note that an associated *keymap* must include *&lt;filter&gt;* as a key mapping. 
+A *keymap* can define a special *id* mapping to to the *any* key that enables explicit filtering of all keystrokes. Each *any* listener is a *keydown* and/or *keyup* handler that receives all related key events and can perform processing on selected key events. Note that an associated *keymap* must include *any* as a key mapping. Also note that *any* has replaced the *&lt;filter&gt;* tag which is now deprecated.
 
 ## HISTORY
 
 ### Version 0.1.2
 * Enhanced to support separate keyboards for separate scenes.
 * Change array splice to removeIndex
+* The *&lt;filter&gt;* tag fro filtering has been deprecated.
 
 ## LICENSE
 

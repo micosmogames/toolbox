@@ -118,19 +118,19 @@ Object.defineProperties(Threadlet, {
   Priority: { value: sched.Priority, enumerable: true },
   LowPriority: {
     get() {
-      return (LowPriorityThreadlet || (LowPriorityThreadlet = Threadlet({ priority: sched.Priority.Low }))).publicInterface();
+      return (LowPriorityThreadlet || (LowPriorityThreadlet = Threadlet({ priority: sched.Priority.Low }).publicInterface()));
     },
     enumerable: true
   },
   DefaultPriority: {
     get() {
-      return (DefaultPriorityThreadlet || (DefaultPriorityThreadlet = Threadlet({ priority: sched.Priority.Default }))).publicInterface();
+      return (DefaultPriorityThreadlet || (DefaultPriorityThreadlet = Threadlet({ priority: sched.Priority.Default }).publicInterface()));
     },
     enumerable: true
   },
   HighPriority: {
     get() {
-      return (HighPriorityThreadlet || (HighPriorityThreadlet = Threadlet({ priority: sched.Priority.High }))).publicInterface();
+      return (HighPriorityThreadlet || (HighPriorityThreadlet = Threadlet({ priority: sched.Priority.High }).publicInterface()));
     },
     enumerable: true
   }
@@ -197,14 +197,17 @@ function _ThreadletPrototype() {
       },
       enumerable: true
     },
-    publicInterface() {
-      const Private = fPrivate(this);
-      return Private.publicInterface || (Private.publicInterface = Object.freeze({
-        isaThreadlet: true,
-        isPublicInterface: true,
-        run: this.run.bind(this),
-        bindRun: this.bindRun.bind(this)
-      }))
+    publicInterface: {
+      value() {
+        const Private = fPrivate(this);
+        return Private.publicInterface || (Private.publicInterface = Object.freeze({
+          isaThreadlet: true,
+          isPublicInterface: true,
+          run: this.run.bind(this),
+          bindRun: this.bindRun.bind(this)
+        }))
+      },
+      enumerable: true
     },
     reject: { value(v) { return Promises.reject(v, this.name) }, enumerable: true },
 

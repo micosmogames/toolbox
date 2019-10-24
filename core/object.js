@@ -32,7 +32,7 @@ module.exports = {
 
 function getJsEnvType() {
   var env
-  try { env = Window } catch (err) { };
+  try { env = window } catch (err) { };
   if (env)
     return 'client';
   try { env = process } catch (err) { };

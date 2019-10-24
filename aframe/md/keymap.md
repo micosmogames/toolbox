@@ -20,7 +20,7 @@ Responsible for establishing and listening to the document level keyboard events
 
 Property | Type | Default | Description
 -------- | ---- | ------- | -----------
-schema | String | '' | A list of key mappings of the form '&lt;keyMapping&gt;, ... ' where *&lt;keyMapping&gt;* is either &lt;id&gt;:&lt;key&gt; or &lt;key&gt;. *&lt;id&gt;* is the logical name and *&lt;key&gt;* is the physical key name. Example *'F1,MyKey:Alt-J'*
+schema | String | '' | A list of key mappings of the form '&lt;keyMapping&gt;, ... ' where *&lt;keyMapping&gt;* is either &lt;id&gt;:&lt;key&gt; or &lt;key&gt;. *&lt;id&gt;* is the logical name and *&lt;key&gt;* is the physical key name. Example *'F1,MyKey:Alt-J'*. The physical key name can also be set to *any* which will allow a listener to receive all keystrokes for explicit filtering.
 
 ##### METHODS
 
@@ -29,7 +29,7 @@ Method | Description
 addListeners(comp,&nbsp;...keySpecs) | Registers the key mappings for component *comp* based on the *keySpecs*. See [system:keyboard:tryAddListeners](./keyboard.md#METHODS).
 removeListeners(comp,&nbsp;...keys) | Removes the listeners that have been registered for the *comp* for one or more *keys*. See [system:keyboard:removeListeners](./keyboard.md#METHODS).
 pause() | Pauses all key event listeners for the associated entity element.
-play() | Resumes all key event listeners for the associated entity element. Note that this will only apply if the element is visible.
+play() | Resumes all key event listeners for the associated entity element. Note that this will only apply if the element is visible unless the keyboard *noVisibilityChecks()* function has been called.
 
 ##### PROPERTIES
 

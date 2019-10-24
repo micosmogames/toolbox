@@ -66,8 +66,8 @@ function dispatchEvent(kb, evt, sEvent) {
     keyCode = `Alt-${keyCode}`;
   if (evt.ctrlKey && evt.key !== 'Control')
     keyCode = `Ctrl-${keyCode}`;
-  // Try the '<filter>' listeners first
-  if (dispatchListeners(kb, '<filter>', keyCode, evt, sEvent))
+  // Try listeners that take 'any' key first
+  if (dispatchListeners(kb, 'any', keyCode, evt, sEvent))
     return;
   dispatchListeners(kb, keyCode, keyCode, evt, sEvent)
 }

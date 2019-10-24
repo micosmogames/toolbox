@@ -22,8 +22,8 @@ function stopTimer(timer) { return (timer && timer.stop()) || 0 }
 function createClientTimer() {
   return Object.create(null, {
     timeMark: { value: undefined, writable: true },
-    start: { value() { this.timeMark = Window.performance.now(); return this } },
-    peek: { value() { return this.timeMark ? Window.performance.now() - this.timeMark : 0 } },
+    start: { value() { this.timeMark = window.performance.now(); return this } },
+    peek: { value() { return this.timeMark ? window.performance.now() - this.timeMark : 0 } },
     stop: { value() { const dt = this.peek(); this.timeMark = undefined; return dt } }
   });
 }

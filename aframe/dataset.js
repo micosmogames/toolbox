@@ -147,7 +147,7 @@ aframe.registerSystem("dataset", {
           throw new Error(`micosmo:system:dataset:parse: Datagroup not defined for dataset(s) '${dsNames}'`);
         const adsNames = dsNames.split(',');
         for (let j = adsNames.length - 1; j >= 0; j--) {
-          let dsName = adsNames[i].trim();
+          let dsName = adsNames[j].trim();
           if (dsName === '') {
             if (!defDSName)
               throw new Error(`micosmo:system:dataset:parse: Dataset name required for datagroup '${compGroup.name}'`);
