@@ -1,5 +1,4 @@
 /* global THREE */
-
 const degs = rads => rads / Math.PI * 180;
 const euler = new THREE.Euler();
 
@@ -27,6 +26,20 @@ export function instantiate(o) {
   }
   throw new Error("Can only instantiate from string for now.");
 };
+
+export function instantiateDatagroup(dg) {
+  const el = document.createElement('a-entity');
+  for (const dsName in dg.datasets) {
+    const ds = dg.datasets[dsName]; const oData = ds.getData();
+    if (dsName === 'attributes') {
+      for (const name in oData)
+        el.setAttribute(name, oData[name]);
+      continue;
+    }
+    ds.system.setAttribute(el, dsName, oData);
+  }
+  return el;
+}
 
 export function isVisibleInScene(el) {
   let iter = el.isObject3D ? el : el.object3D;

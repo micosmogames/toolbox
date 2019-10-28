@@ -13,6 +13,7 @@
 //    8. Extension datasets defined in a dataset format string will override an inherited 'extend-datagroup' dataset.
 
 import aframe from 'aframe';
+import { bindEvent } from 'aframe-event-decorators';
 import { copyValues } from '@micosmo/core/replicate';
 import { StringBuilder, parseNameValues, skipRight } from '@micosmo/core/string';
 import { hasOwnProperty } from '@micosmo/core/object';
@@ -37,6 +38,7 @@ aframe.registerComponent("dataset", {
       throw new Error(`micosmo:component:dataset:update: The 'extend-datagroup' component must be placed before 'dataset' components`);
     const oDataset = (compExtend && compExtend.copyData(this.id)) || Object.create(null);
     this.dataset = Object.freeze(this.system.parse(this.data, oDataset, { defaultDatasetName: this.id, defaultDatagroup: this.group }));
+    this.group.addDataset(this);
   },
   getData() { return this.dataset },
   copyData() { return copyValues(this.dataset) }
@@ -70,10 +72,12 @@ aframe.registerComponent("datagroup", {
       throw new Error(`micosmo:system:datagroup:init: A datagroup element must have an 'id' attribute`);
     this.sysDataset = this.el.sceneEl.systems.dataset;
     this.sysDataset.addDatagroup(this.name, this);
+    this.datasets = Object.create(null);
   },
-  getData(dsName) { const comp = this.el.components[`dataset__${dsName}`]; return (comp && comp.getData()) || EmptyData },
+  addDataset(ds) { this.datasets[ds.id] = ds },
+  getData(dsName) { const comp = this.datasets[dsName]; return (comp && comp.getData()) || EmptyData },
   copyData(dsName) { return copyValues(this.getData(dsName)) },
-  hasDataFor(dsName) { return this.el.components[`dataset__${dsName}`] !== undefined }
+  hasDataFor(dsName) { return this.datasets[dsName] !== undefined },
 });
 
 aframe.registerPrimitive('a-datagroup', { defaultComponents: { datagroup: '' } });
