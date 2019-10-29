@@ -138,8 +138,8 @@ function getListener(comp, spec, sEvt) {
   const sIdEvt = `${sEvt}_${spec.id}`;
   var fEvt = spec[sEvt];
   if (fEvt) return fEvt;
-  if ((fEvt = comp[sIdEvt] && comp[sIdEvt].bind(comp))) return fEvt;
-  return ((fEvt = comp[sEvt] && comp[sEvt].bind(comp))) ? fEvt : noListener;
+  if (typeof comp[sIdEvt] === 'function' && (fEvt = comp[sIdEvt].bind(comp))) return fEvt;
+  return (typeof comp[sEvt] === 'function' && (fEvt = comp[sEvt].bind(comp))) ? fEvt : noListener;
 }
 
 function noListener() { return false }
