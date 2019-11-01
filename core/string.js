@@ -24,10 +24,14 @@
 'use strict';
 
 const { isOperator, isWhitespace } = require('./character');
+const { hasOwnProperty } = require('./object');
+
+const _ = undefined;
 
 module.exports = {
   StringBuilder,
   parseNameValues,
+  stringifyNameValues,
   skip,
   skipRight,
   skipLeft
@@ -62,7 +66,8 @@ const ParseNameValuesDefaultOptions = {
   entrySeparator: ';', // Character seperating name/value entries.
   nameValueSeparator: ':', // Character separating the name and value of an entry
   valuesSeparator: ',', // Character seperating array values.
-  appendDuplicates: false // True to create an array of values for duplicate named entries, otherwise overwrite
+  appendDuplicates: false, // True to create an array of values for duplicate named entries, otherwise overwrite
+  stringifyTypes: false // True to output type prefix when stringifying name/values.
 }
 
 function parseNameValues(data, oTgt = Object.create(null), options = ParseNameValuesDefaultOptions) {
@@ -176,9 +181,12 @@ var TypeHandler = {
   }
 };
 
+const SymVector = Symbol('MicosmoVector');
 const VectorProps = ['x', 'y', 'z', 'w'];
+const VectorTypes = [_, _, 'v2', 'v3', 'v4'];
+
 function toVector(s, iStart, iEnd, sz) {
-  const vec = {};
+  const vec = Object.create(null); vec[SymVector] = VectorTypes[sz];
   let count = 0;
   for (let i = s.indexOf(' ', iStart); i <= iEnd && count < sz; iStart = i + 1, i = s.indexOf(' ', iStart)) {
     if (i < 0) { if (iStart <= iEnd) vec[VectorProps[count++]] = TypeHandler.f(s, iStart, iEnd); break }
@@ -187,4 +195,83 @@ function toVector(s, iStart, iEnd, sz) {
   }
   for (; count < sz; vec[VectorProps[count++]] = 0.0);
   return vec;
+}
+
+const Sb = StringBuilder();
+function stringifyNameValues(oNameValues, options = ParseNameValuesDefaultOptions) {
+  const vSep = options.valuesSeparator || ParseNameValuesDefaultOptions.valuesSeparator;
+  const nvSep = options.nameValueSeparator || ParseNameValuesDefaultOptions.nameValueSeparator
+  const eSep = options.entrySeparator || ParseNameValuesDefaultOptions.entrySeparator
+  const flArrayAsDuplicates = options.appendDuplicates;
+  const fl = options.stringifyTypes;
+  Sb.clear();
+  for (const prop in oNameValues) {
+    if (!hasOwnProperty(oNameValues, prop)) continue;
+    const val = oNameValues[prop];
+    if (Array.isArray(val)) {
+      if (flArrayAsDuplicates) {
+        val.forEach(v => { addTypePrefix(v, fl); Sb.append(prop).append(nvSep).append(getValueString(v)).append(eSep) });
+        continue;
+      }
+      if (val.length === 0) {
+        Sb.append('([s])').append(prop).append(nvSep).append(eSep);
+        continue;
+      }
+      addArrayPrefix(val, fl); Sb.append(prop).append(nvSep); val.forEach(v => { Sb.append(getValueString(v)).append(vSep) });
+      Sb.atPut(Sb.segmentCount() - 1, eSep);
+    } else {
+      addTypePrefix(val, fl); Sb.append(prop).append(nvSep).append(getValueString(val)).append(eSep);
+    }
+  }
+  return Sb.toString();
+}
+
+function addArrayPrefix(arr, flTypes) {
+  if (!flTypes) return;
+  var tyCode = getValueType(arr[0]);
+  for (let i = 1; i < arr.length; i++) {
+    const ty = getValueType(arr[i]);
+    if (ty === tyCode) continue;
+    if ((tyCode === 'i' && ty === 'f') || (tyCode === 'f' && ty === 'i')) {
+      tyCode = 'f';
+      continue;
+    }
+    tyCode = 's';
+    break;
+  }
+  Sb.append(`([${tyCode}])`)
+}
+
+function addTypePrefix(v, flTypes) {
+  if (!flTypes) return;
+  const tyCode = getValueType(v);
+  if (tyCode !== 's') Sb.append(`(${tyCode})`);
+}
+
+const StringifyVector = {
+  v2(v) { return `${v.x} ${v.y}` },
+  v3(v) { return `${v.x} ${v.y} ${v.z}` },
+  v4(v) { return `${v.x} ${v.y} ${v.z} ${v.w}` }
+}
+
+function getValueString(v, tyCode) {
+  const ty = typeof v;
+  if (ty === 'string') return v;
+  if (ty !== 'object') return String(v);
+  if (v[SymVector]) return StringifyVector[v[SymVector]](v);
+  return String(v);
+}
+
+function getValueType(v) {
+  const ty = typeof v;
+  switch (ty) {
+  case 'boolean': return 'b';
+  case 'number': return Number.isInteger(v) ? 'i' : 'f';
+  case 'string': return (v.length === 0 || (!isWhitespace(v[0] && !isWhitespace(v[v.length - 1])))) ? 's' : 't';
+  case 'object':
+    if (v === null) return 's';
+    if (v[SymVector]) return v[SymVector];
+  default:
+    return 's';
+  }
 }

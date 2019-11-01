@@ -13,12 +13,10 @@
 //    8. Extension datasets defined in a dataset format string will override an inherited 'extend-datagroup' dataset.
 
 import aframe from 'aframe';
-import { bindEvent } from 'aframe-event-decorators';
 import { copyValues } from '@micosmo/core/replicate';
-import { StringBuilder, parseNameValues, skipRight } from '@micosmo/core/string';
+import { parseNameValues, skipRight, stringifyNameValues } from '@micosmo/core/string';
 import { hasOwnProperty } from '@micosmo/core/object';
-
-const Sb = StringBuilder();
+import { stringify } from 'querystring';
 
 aframe.registerComponent("dataset", {
   schema: { default: '' },
@@ -165,11 +163,8 @@ aframe.registerSystem("dataset", {
     }
     return parseNameValues(sData, oData, options); // Options can contain parseNameValues option overrides
   },
-  asString(oDataset) {
-    Sb.clear();
-    for (const prop in oDataset)
-      Sb.append(prop).append(':').append(oDataset[prop]).append(';');
-    return Sb.toString();
+  asString(oDataset, options) {
+    return stringifyNameValues(oDataset, options);
   },
   setAttribute(el, attrName, ...data) {
     let attrData = ''; let oData;

@@ -57,8 +57,9 @@ Function | Description
 -------- | -----------
 skipRight(s[,&nbsp;iStart]) | Returns an adjusted *iStart* by skipping whitespace to the right in *s* starting at *iStart* (defaults to 0). .
 skipLeft(s[,&nbsp;iEnd]) | Returns an adjusted *iEnd* by skipping whitespace to the left in *s* starting at *iEnd* (defaults to *s.length - 1*). .
-skip(s[,&nbsp;iStart[,&nbsp;iEnd]]) | Skips whitespace in *s* from the right starting at *iStart* and to the left starting at *iEnd*. Returns adjusted *iStart* and *iEnd* values in a static array. Typically a *skip* call be used in an expression similar to ```[iStart, iEnd] = skip(<string>, iStart, iEnd)```.
-parseNameValues(s[,&nbsp;oTgt[,&nbsp;options]]) | Returns *oTgt* after populating *oTgt* with name value pairs contained in *s*. String format is a sequence of ```[;<eSep> | :<nvSep> | ,<vSep>]... [(<ty>)|([<ty>])] <name> <nvSep> <value> <eSep>```. See [ParseNameValues.Options](#ParseNameValues.Options) for more detail on the processing *options*. *&lt;eSep&gt;* is the separator between name/value entries, *&lt;nvSep&gt;* is the separator between name and value of an entry, and *&lt;vSep&gt;* is the separator between the values of an array type. *ty* is the type of value to output, see [ParseNameValues.Types](#ParseNameValues.Types) for more detail. If *oTgt* is not provided then *parseNameValues* will create a return object. Separators may be any operator, separator or whitespace characters. If *vSep* is set to a whitespace character then any leading occurrences of *vSep* are treated as whitespace. For example the formated string ```', ([rs])val: foo bar'``` will return ```{ val: [' foo', 'bar']}```
+skip(s[,&nbsp;iStart[,&nbsp;iEnd]]) | Skips whitespace in *s* from the right starting at *iStart* and to the left starting at *iEnd*. Returns adjusted *iStart* and *iEnd* values in a static array. Typically a *skip* call be used in an expression similar to `[iStart, iEnd] = skip(<string>, iStart, iEnd)`.
+parseNameValues(s[,&nbsp;oTgt[,&nbsp;options]]) | Returns *oTgt* after populating *oTgt* with name value pairs contained in *s*. String format is a sequence of `[;<eSep> | :<nvSep> | ,<vSep>]... [(<ty>)|([<ty>])] <name> <nvSep> <value> <eSep>`. See [ParseNameValues.Options](#ParseNameValues.Options) for more detail on the processing *options*. *&lt;eSep&gt;* is the separator between name/value entries, *&lt;nvSep&gt;* is the separator between name and value of an entry, and *&lt;vSep&gt;* is the separator between the values of an array type. *ty* is the type of value to output, see [ParseNameValues.Types](#ParseNameValues.Types) for more detail. If *oTgt* is not provided then *parseNameValues* will create a return object. Separators may be any operator, separator or whitespace characters. If *vSep* is set to a whitespace character then any leading occurrences of *vSep* are treated as whitespace. For example the formated string `', ([rs])val: foo bar'` will return `{ val: [' foo', 'bar']}`
+stringifyNameValues(oSrc[,&nbsp;options]) | Returns the string representation of the *name/values* contained in *oSrc*. The processing *options* defined in [ParseNameValues.Options](#ParseNameValues.Options) will control which separator characters are employed and id *appendDuplicates* is set to *true* and array values will be represented as duplicate *name/value* pairs. The resultant string will include entry type codes for any non string types, see function *parseNameValues* and [ParseNameValues.Types](#ParseNameValues.Types) for more detail.
 
 #### ParseNameValues.Options
 
@@ -85,12 +86,12 @@ v4 | Returns an { x, y, z, w } vector object with input of the form '&lt;x&gt;&n
 
 ##### Notes:
   * Type *s* is the default.
-  * The type specification ```([<ty>])``` defines that the input is an array of *ty* with values separated by *&lt;vSep&gt;*.
+  * The type specification `([<ty>])` defines that the input is an array of *ty* with values separated by *&lt;vSep&gt;*.
 
 ## HISTORY
 
 ### Version 0.2.0
-* Added *parseNameValues* as a simple css style formatted string parser that includes imbedded types and separator specification.
+* Added *parseNameValues* as a simple css style formatted string parser that includes imbedded types and separator specification. Also includes *stringifyNameValues* to transform a name/values object back into a string representation.
 * Changes to *Stringbuffer* to get and put individual segments. Change *atGet* to *charAt* for consistency. *atGet* now returns segment.
 * *name* property deprecated, replaced by *isaStringBuilder* property.
 * Added *skip*, *skipRight*, *skipLeft* for adjusting indicies within a string that contain leading to trailing whitespace.
