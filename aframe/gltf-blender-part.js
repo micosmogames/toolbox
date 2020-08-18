@@ -11,18 +11,18 @@ aframe.registerComponent("gltf-blender-part", {
     part: { type: "string" },
     src: { type: "asset" },
     findMesh: { default: true },
-    fresh: { default: false }
+    fresh: { default: false },
   },
 
-  init: function() {
+  init: function () {
     this.chain = Promise.resolve();
   },
 
   update(oldData) {
     if (oldData.part !== this.data.part || oldData.src !== this.data.src) {
       this.chain = this.chain.then(
-        new Promise(resolve => {
-          this.getModel(modelPart => {
+        new Promise((resolve) => {
+          this.getModel((modelPart) => {
             if (!modelPart) {
               return;
             }
@@ -35,7 +35,10 @@ aframe.registerComponent("gltf-blender-part", {
             // Becareful as trajectile command expects these events to be bubbled.
             // Handlers of the events will need to discriminate by 'modelPart.name'.
             this.el.emit("model-loaded", { format: "gltf", model: modelPart });
-            this.el.emit("object3dset", { type: this.data.findMesh ? 'mesh' : 'part', object: modelPart });
+            this.el.emit("object3dset", {
+              type: this.data.findMesh ? "mesh" : "part",
+              object: modelPart,
+            });
             resolve();
           });
         })
@@ -48,12 +51,12 @@ aframe.registerComponent("gltf-blender-part", {
    *
    * @returns {object} Selected subset of model.
    */
-  getModel: function(cb) {
+  getModel: function (cb) {
     if (this.data.fresh) {
       // Always reparse the scene for this object.
       new THREE.GLTFLoader().load(
         this.data.src,
-        gltfModel => {
+        (gltfModel) => {
           //          console.log('THREE.GLTFLoader().load: fresh', this.data.src, this.data.part);
           var model = gltfModel.scene || gltfModel.scenes[0];
           const part = this.selectFromModel(model);
@@ -62,13 +65,14 @@ aframe.registerComponent("gltf-blender-part", {
           //        console.log('THREE.GLTFLoader().load: end', model);
         },
         undefined,
-        err => {
+        (err) => {
           var msg = String(err);
-          if (err instanceof Error)
-            msg = err.message;
+          if (err instanceof Error) msg = err.message;
           else if (err instanceof Event)
             msg = (err.srcElement && err.srcElement.src) || msg;
-          console.error(`micosmo:component:gltf-blender-part:THREE.GLTFLoader: Failed. Src(${this.data.src}) Part(${this.data.part}) Error(${msg})`);
+          console.error(
+            `micosmo:component:gltf-blender-part:THREE.GLTFLoader: Failed. Src(${this.data.src}) Part(${this.data.part}) Error(${msg})`
+          );
         }
       );
       return;
@@ -83,18 +87,18 @@ aframe.registerComponent("gltf-blender-part", {
 
     // Currently loading, wait for it.
     if (LOADING_MODELS[this.data.src]) {
-      return LOADING_MODELS[this.data.src].then(model => {
+      return LOADING_MODELS[this.data.src].then((model) => {
         cb(this.selectFromModel(model));
-      //  console.log('Currently Loading: end', this.data.src, this.data.part);
+        //  console.log('Currently Loading: end', this.data.src, this.data.part);
       });
     }
 
     // Not yet fetching, fetch it.
-    LOADING_MODELS[this.data.src] = new Promise(resolve => {
+    LOADING_MODELS[this.data.src] = new Promise((resolve) => {
       new THREE.GLTFLoader().load(
         this.data.src,
-        gltfModel => {
-        //  console.log('THREE.GLTFLoader().load: fetch', this.data.src, this.data.part);
+        (gltfModel) => {
+          //  console.log('THREE.GLTFLoader().load: fetch', this.data.src, this.data.part);
           var model = gltfModel.scene || gltfModel.scenes[0];
           MODELS[this.data.src] = model;
           delete LOADING_MODELS[this.data.src];
@@ -103,13 +107,14 @@ aframe.registerComponent("gltf-blender-part", {
           resolve(model);
         },
         undefined,
-        err => {
+        (err) => {
           var msg = String(err);
-          if (err instanceof Error)
-            msg = err.message;
+          if (err instanceof Error) msg = err.message;
           else if (err instanceof Event)
             msg = (err.srcElement && err.srcElement.src) || msg;
-          console.error(`micosmo:component:gltf-blender-part:THREE.GLTFLoader: Failed. Src(${this.data.src}) Part(${this.data.part}) Error(${msg})`);
+          console.error(
+            `micosmo:component:gltf-blender-part:THREE.GLTFLoader: Failed. Src(${this.data.src}) Part(${this.data.part}) Error(${msg})`
+          );
         }
       );
     });
@@ -118,9 +123,9 @@ aframe.registerComponent("gltf-blender-part", {
   /**
    * Search for the part name, look for a mesh, displace the mesh relative to node being searched for
    */
-  selectFromModel: function(model) {
+  selectFromModel: function (model) {
     let part, mesh;
-    model.traverse(x => {
+    model.traverse((x) => {
       if (x.name === this.data.part) part = x;
     });
     if (!part) {
@@ -136,7 +141,8 @@ aframe.registerComponent("gltf-blender-part", {
       }
       mesh = mesh.clone(true);
 
-      mesh.applyMatrix(new THREE.Matrix4());
+      //mesh.applyMatrix(new THREE.Matrix4());
+      mesh.position.set(0, 0, 0);
 
       if (this.data.buffer) {
         mesh.geometry = mesh.geometry.toNonIndexed();
@@ -150,5 +156,5 @@ aframe.registerComponent("gltf-blender-part", {
     } else {
       return part;
     }
-  }
+  },
 });
